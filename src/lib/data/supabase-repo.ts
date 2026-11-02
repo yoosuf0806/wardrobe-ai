@@ -42,13 +42,23 @@ export class SupabaseRepository implements Repository {
     const { data, error } = await this.db.from("wardrobe_items").select(ITEM_COLUMNS).eq("archived", false).order("created_at", { ascending: false });
     if (error) throw error;
     const rows = (data ?? []) as ItemRow[];
-    const paths = rows.map((r) => r.image_path).filter((p): p is string => !!p);
+    // paths starting with "/" are public static sample photos; others live in private storage
+    const paths = rows.map((r) => r.image_path).filter((p): p is string => !!p && !p.startsWith("/"));
     const urls = new Map<string, string>();
     if (paths.length) {
       const { data: signed } = await this.db.storage.from(BUCKET).createSignedUrls(paths, 60 * 60);
       for (const s of signed ?? []) if (s.path && s.signedUrl) urls.set(s.path, s.signedUrl);
     }
-    return rows.map((r) => ({ ...r, image_url: r.image_path ? urls.get(r.image_path) ?? null : null }));
+    return rows.map((r) => ({ ...r, image_url: r.image_path ? (r.image_path.startsWith("/") ? r.image_path : urls.get(r.image_path) ?? null) : null }));
+  }
+
+  async addSampleItems(items: { attrs: GarmentAttributes; static_image: string | null }[]): Promise<number> {
+    if (items.length === 0) return 0;
+    const { error } = await this.db.from("wardrobe_items").insert(
+      items.map((i) => ({ ...i.attrs, user_id: this.userId, image_path: i.static_image, ai_raw: { sample: true } })),
+    );
+    if (error) throw error;
+    return items.length;
   }
 
   async addItem(attrs: GarmentAttributes, image: NewImage | null, embedding: number[] | null, aiRaw: unknown): Promise<WardrobeItem> {
@@ -93,7 +103,7 @@ export class SupabaseRepository implements Repository {
       .update({ image_path: path, ...(embedding ? { item_embedding: JSON.stringify(embedding) } : {}), updated_at: new Date().toISOString() })
       .eq("id", id);
     if (e3) throw e3;
-    if (old?.image_path) await this.db.storage.from(BUCKET).remove([old.image_path]);
+    if (old?.image_path && !old.image_path.startsWith("/")) await this.db.storage.from(BUCKET).remove([old.image_path]);
   }
 
   async archiveItem(id: string): Promise<void> {

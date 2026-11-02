@@ -49,6 +49,7 @@ With no environment variables the app runs in **demo mode**: a seeded 16-piece w
    ```
    or paste the files in `supabase/migrations/` into the SQL editor, in order.
 3. In Supabase Auth, add `http://localhost:3000/auth/callback` (and your production URL) to the redirect URLs.
+4. New accounts start with an empty wardrobe. Testers can tap **Load sample wardrobe** (on the Stylist or Wardrobe screen) to copy the 21-piece sample into their own account. It uses real photos if `npm run samples:photos` has been run; pieces they already have are skipped.
 
 | Variable | Enables |
 |---|---|

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ItemImage, titleCase } from "@/components/garment-art";
 import { GarmentForm, downscale, pickAttributes } from "@/components/garment-form";
 import { IconPlus } from "@/components/icons";
+import { SampleWardrobeButton } from "@/components/sample-wardrobe-button";
 import { isInLaundry } from "@/lib/engine/recommend";
 import type { Category, GarmentAttributes, WardrobeItem } from "@/lib/types";
 
@@ -107,13 +108,26 @@ export function WardrobeGrid({ items, initialTab }: { items: WardrobeItem[]; ini
         </div>
       )}
 
-      {visible.length === 0 && (
-        <div className="card text-center text-sm text-muted">
-          Nothing here yet.{" "}
-          <Link href="/wardrobe/new" className="text-ink underline">
-            Add a piece
-          </Link>
+      {items.length === 0 ? (
+        <div className="card space-y-3 p-6 text-center">
+          <p className="display text-[30px]">Your wardrobe is empty</p>
+          <p className="text-sm text-muted">Photograph your own clothes, or start with a 21-piece sample wardrobe to try the stylist right away.</p>
+          <div className="flex flex-wrap justify-center gap-2 pt-1">
+            <SampleWardrobeButton />
+            <Link href="/wardrobe/new" className="btn-ghost">
+              Add my clothes
+            </Link>
+          </div>
         </div>
+      ) : (
+        visible.length === 0 && (
+          <div className="card text-center text-sm text-muted">
+            Nothing here yet.{" "}
+            <Link href="/wardrobe/new" className="text-ink underline">
+              Add a piece
+            </Link>
+          </div>
+        )
       )}
 
       {SECTION_ORDER.map((cat) => {

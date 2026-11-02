@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ItemImage, titleCase } from "@/components/garment-art";
 import { IconCheck, IconRain, IconSparkle, IconSun, IconX } from "@/components/icons";
+import { SampleWardrobeButton } from "@/components/sample-wardrobe-button";
 import { QUICK_OCCASIONS } from "@/lib/engine/occasions";
 import type { OutfitView, RecommendResponse } from "@/lib/services/stylist-service";
 import type { WardrobeItem, Weather } from "@/lib/types";
@@ -29,7 +30,7 @@ function weatherPhrase(w: Weather) {
   return parts.join(", ");
 }
 
-export function StylistHome({ initialOccasion, shapeLabel, savedLooks: initialSaved, demo, styleDone }: { initialOccasion: string; shapeLabel: string | null; savedLooks: SavedLook[]; demo: boolean; styleDone: boolean }) {
+export function StylistHome({ initialOccasion, shapeLabel, savedLooks: initialSaved, demo, styleDone, itemCount }: { initialOccasion: string; shapeLabel: string | null; savedLooks: SavedLook[]; demo: boolean; styleDone: boolean; itemCount: number }) {
   const [occasion, setOccasion] = useState(initialOccasion);
   const [otherOpen, setOtherOpen] = useState(false);
   const [otherText, setOtherText] = useState("");
@@ -116,10 +117,12 @@ export function StylistHome({ initialOccasion, shapeLabel, savedLooks: initialSa
     [tempOverride],
   );
 
+  const hasItems = itemCount > 0;
   useEffect(() => {
-    request(occasion, { fresh: true });
+    // first visit, and again right after a sample wardrobe is loaded
+    if (hasItems) request(occasion, { fresh: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hasItems]);
 
   function pick(occ: string) {
     setOccasion(occ);
@@ -268,7 +271,20 @@ export function StylistHome({ initialOccasion, shapeLabel, savedLooks: initialSa
 
       {/* ------------------------------------------------------------ deck */}
       <section aria-live="polite">
-        {phase === "loading" && <SkeletonCard />}
+        {itemCount === 0 && (
+          <div className="card space-y-3 p-6 text-center">
+            <p className="eyebrow">Let&apos;s get started</p>
+            <h2 className="display text-[32px]">Add your wardrobe first</h2>
+            <p className="text-sm text-muted">Photograph your clothes, or load a 21-piece sample wardrobe to try the stylist straight away.</p>
+            <div className="flex flex-wrap justify-center gap-2 pt-1">
+              <SampleWardrobeButton />
+              <Link href="/wardrobe/new" className="btn-ghost">
+                Add my clothes
+              </Link>
+            </div>
+          </div>
+        )}
+        {itemCount > 0 && phase === "loading" && <SkeletonCard />}
 
         {phase === "error" && (
           <div className="card text-sm">

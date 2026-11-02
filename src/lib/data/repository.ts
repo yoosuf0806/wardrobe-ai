@@ -15,6 +15,8 @@ export interface Repository {
   listItems(): Promise<WardrobeItem[]>;
   addItem(attrs: GarmentAttributes, image: NewImage | null, embedding: number[] | null, aiRaw: unknown): Promise<WardrobeItem>;
   updateItem(id: string, attrs: Partial<GarmentAttributes>): Promise<void>;
+  /** Insert sample pieces whose image is a public static file (e.g. /samples/photos/x.jpg) or none. */
+  addSampleItems(items: { attrs: GarmentAttributes; static_image: string | null }[]): Promise<number>;
   archiveItem(id: string): Promise<void>;
   /** Replace an item's photo (and embedding). */
   updateItemImage(id: string, image: NewImage, embedding: number[] | null): Promise<void>;

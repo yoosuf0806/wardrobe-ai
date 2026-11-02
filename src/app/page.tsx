@@ -31,6 +31,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ o
       savedLooks={saved}
       demo={repo.mode === "demo"}
       styleDone={!!profile.style_profile.completed_at}
+      itemCount={items.length}
     />
   );
 }

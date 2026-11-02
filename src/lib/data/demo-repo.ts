@@ -55,6 +55,23 @@ export class DemoRepository implements Repository {
     state().items.unshift(item);
     return structuredClone(item);
   }
+  async addSampleItems(items: { attrs: GarmentAttributes; static_image: string | null }[]) {
+    const now = new Date().toISOString();
+    state().items.unshift(
+      ...items.map((i) => ({
+        ...i.attrs,
+        id: randomUUID(),
+        user_id: DEMO_USER_ID,
+        image_url: i.static_image,
+        image_path: null,
+        wear_count: 0,
+        last_worn_at: null,
+        in_laundry_since: null,
+        created_at: now,
+      })),
+    );
+    return items.length;
+  }
   async updateItem(id: string, attrs: Partial<GarmentAttributes>) {
     const s = state();
     s.items = s.items.map((i) => (i.id === id ? { ...i, ...attrs } : i));
