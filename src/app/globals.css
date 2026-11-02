@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@theme {
+  --color-canvas: #faf8f5;
+  --color-surface: #ffffff;
+  --color-ink: #1c1917;
+  --color-muted: #78716c;
+  --color-line: #e7e2db;
+  --color-accent: #9a3412;
+  --color-accent-soft: #fdeee4;
+  --color-good: #166534;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+}
+
+html, body { background: var(--color-canvas); color: var(--color-ink); }
+body { -webkit-tap-highlight-color: transparent; }
+
+@utility card { @apply rounded-2xl border border-line bg-surface p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]; }
+@utility btn { @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition disabled:opacity-50; }
+@utility btn-primary { @apply btn bg-ink text-white hover:bg-black; }
+@utility btn-ghost { @apply btn border border-line bg-surface hover:bg-canvas; }
+@utility input { @apply w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-sm outline-none focus:border-ink; }
+@utility label { @apply mb-1 block text-xs font-medium uppercase tracking-wide text-muted; }
+@utility chip { @apply inline-flex items-center rounded-full border border-line bg-surface px-3 py-1 text-xs; }
+@utility chip-on { @apply chip border-ink bg-ink text-white; }
