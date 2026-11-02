@@ -1,0 +1,359 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Instrument+Serif:ital@0;1&display=block" rel="stylesheet">
+<style>
+  :root { --ink:#141210; --cream:#f8f5f0; --surface:#fffdfa; --muted:#6f6a63; --line:#e8e2d9; --accent:#c2703d; --soft:#f6e9df; --good:#3f7d4e; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 540px; height: 960px; overflow: hidden; background: var(--cream); }
+  body { font-family: "DM Sans", sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .serif { font-family: "Instrument Serif", serif; font-weight: 400; letter-spacing: -0.01em; }
+  .abs { position: absolute; }
+  #stage { position: relative; width: 540px; height: 960px; overflow: hidden; }
+  #bgDark { inset: 0; background: radial-gradient(120% 80% at 50% 30%, #2a2420 0%, #141210 60%); }
+  #grain { inset: 0; opacity: .06; background-image: radial-gradient(#000 0.6px, transparent 0.7px); background-size: 3px 3px; pointer-events: none; }
+  /* story progress bar */
+  #progress { top: 14px; left: 14px; right: 14px; height: 3px; display: flex; gap: 4px; z-index: 50; }
+  #progress div { flex: 1; background: rgba(120,110,100,.25); border-radius: 2px; overflow: hidden; }
+  #progress i { display: block; height: 100%; width: 0; background: var(--ink); }
+  #progress.dark div { background: rgba(255,255,255,.22); } #progress.dark i { background: #fff; }
+  .tile { width: 110px; height: 110px; border-radius: 18px; overflow: hidden; box-shadow: 0 10px 30px -12px rgba(0,0,0,.35); background: #efe9e0; }
+  .tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .eyebrow { font-size: 11px; letter-spacing: .26em; text-transform: uppercase; font-weight: 500; }
+  .center { left: 0; right: 0; text-align: center; }
+  /* phone */
+  #phone { left: 112px; top: 182px; width: 316px; height: 665px; border-radius: 46px; background: #111; padding: 8px; box-shadow: 0 40px 80px -30px rgba(40,25,10,.55), 0 0 0 1.5px #2b2b2b inset; transform-origin: 50% 50%; }
+  #screen { position: relative; width: 300px; height: 649px; border-radius: 38px; overflow: hidden; background: var(--cream); }
+  #status { top: 0; left: 0; right: 0; height: 22px; z-index: 20; display: flex; justify-content: space-between; align-items: center; padding: 6px 24px 0 26px; font-size: 11px; font-weight: 600; }
+  #notch { top: 6px; left: 50%; width: 86px; height: 22px; margin-left: -43px; border-radius: 14px; background: #111; z-index: 21; }
+  #appHeader { top: 22px; left: 0; width: 300px; z-index: 15; }
+  #viewport { top: 72px; left: 0; width: 300px; bottom: 0; overflow: hidden; }
+  #content { top: 0; left: 0; width: 300px; }
+  #content img.base { width: 300px; display: block; }
+  #nav { bottom: 0; left: 0; width: 300px; z-index: 16; }
+  #full { inset: 0; z-index: 18; }
+  #full img { width: 300px; display: block; }
+  .card { left: 0; width: 275.4px; transform-origin: 50% 110%; }
+  .card img { width: 100%; display: block; border-radius: 22px; box-shadow: 0 14px 34px -14px rgba(0,0,0,.35); }
+  .stamp { top: 20px; padding: 3px 9px; border: 3px solid; border-radius: 10px; font-weight: 700; letter-spacing: .16em; font-size: 15px; background: rgba(255,253,250,.85); }
+  .ripple { width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(20,18,16,.25); border: 2px solid rgba(20,18,16,.5); z-index: 30; }
+  .finger { width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; background: rgba(255,255,255,.85); box-shadow: 0 4px 14px rgba(0,0,0,.35); z-index: 31; }
+  .sel { border: 2.4px solid var(--ink); border-radius: 18px; z-index: 12; }
+  .check { width: 24px; height: 24px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 13px; display: flex; align-items: center; justify-content: center; z-index: 13; }
+  /* text */
+  .chap { left: 0; right: 0; top: 52px; text-align: center; }
+  .chap .t { font-size: 46px; line-height: 1; margin-top: 8px; }
+  .cap { left: 28px; right: 28px; bottom: 30px; text-align: center; font-size: 19px; line-height: 1.35; font-weight: 500; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 12px 30px -14px rgba(60,40,20,.35); font-size: 14px; white-space: nowrap; }
+  .chip b { color: var(--accent); font-size: 10px; letter-spacing: .16em; font-weight: 600; }
+  .pill { padding: 14px 26px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 18px; font-weight: 600; }
+  .note { background: #eee8e1; border-radius: 16px; padding: 12px 14px; font-size: 13.5px; line-height: 1.45; }
+  .note .h { color: var(--accent); font-size: 10px; letter-spacing: .2em; font-weight: 600; margin-bottom: 4px; }
+  .highlight { border: 2.5px solid var(--accent); border-radius: 22px; box-shadow: 0 0 0 6px rgba(194,112,61,.18); z-index: 14; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bgDark" class="abs"></div>
+  <div id="tiles" class="abs" style="inset:0"></div>
+
+  <div id="progress" class="abs"></div>
+
+  <!-- 1 hook -->
+  <div id="hook" class="abs center" style="top:300px">
+    <div id="hookEye" class="eyebrow" style="color:#d9c9b6">7:42 AM · Colombo · 27°C</div>
+    <div id="hookQuote" class="serif" style="color:#fff;font-size:58px;line-height:1.02;margin:22px 30px 0"></div>
+    <div id="hookSub" style="color:#bfb3a5;font-size:17px;margin-top:22px">Kavin, staring at a full wardrobe.</div>
+  </div>
+  <!-- 2 familiar -->
+  <div id="familiar" class="abs center" style="top:250px">
+    <div id="fam1" class="serif" style="font-size:54px;line-height:1">Sound familiar?</div>
+    <div id="fam2" style="font-size:19px;margin-top:26px;color:var(--muted)">Same three outfits, on repeat.</div>
+    <div id="fam3" style="font-size:19px;margin-top:10px;color:var(--muted)">New clothes that never get worn.</div>
+    <div id="fam4" style="font-size:19px;margin-top:10px;color:var(--muted)">Ten minutes of panic. Every morning.</div>
+  </div>
+  <!-- 3 brand -->
+  <div id="brand" class="abs center" style="top:230px">
+    <div id="meet" class="eyebrow" style="color:var(--muted)">Meet</div>
+    <div id="logo" class="serif" style="font-size:86px;line-height:1;margin-top:12px">Smart<em style="color:var(--accent)">Stylist</em></div>
+    <div id="tag" style="font-size:19px;color:var(--muted);margin-top:16px">Your wardrobe, styled for the day ahead.</div>
+  </div>
+
+  <!-- chapter titles + captions -->
+  <div id="chap" class="abs chap"><div id="chapEye" class="eyebrow" style="color:var(--accent)"></div><div id="chapT" class="serif t"></div></div>
+  <div id="cap" class="abs cap"></div>
+
+  <!-- phone -->
+  <div id="phone" class="abs">
+    <div id="screen">
+      <div id="status" class="abs"><span>8:00</span><span>●●● ▮</span></div>
+      <div id="notch" class="abs"></div>
+      <img id="appHeader" class="abs" src="shots/chrome-header.png">
+      <div id="viewport" class="abs">
+        <div id="content" class="abs">
+          <img id="base" class="base" src="shots/wardrobe.png">
+        </div>
+        <div id="overlays" class="abs" style="inset:0"></div>
+      </div>
+      <img id="nav" class="abs" src="shots/chrome-nav.png">
+      <div id="full" class="abs"><img id="fullImg" src="shots/laundry-open.png"></div>
+    </div>
+  </div>
+
+  <div id="floating" class="abs" style="inset:0;pointer-events:none"></div>
+
+  <!-- learned chips -->
+  <div id="learned" class="abs" style="left:34px;right:34px;top:250px"></div>
+
+  <!-- end -->
+  <div id="end" class="abs center" style="top:205px">
+    <div class="serif" style="font-size:82px;line-height:1">Smart<em style="color:var(--accent)">Stylist</em></div>
+    <div id="endLine" class="serif" style="font-size:40px;margin-top:18px">Swipe. Wear. Repeat.</div>
+    <div id="endSub" style="font-size:17px;color:var(--muted);margin:14px 50px 0;line-height:1.4">The AI stylist that dresses you from the clothes you already own.</div>
+    <div id="endCta" style="margin-top:34px;display:flex;justify-content:center"><div class="pill">Join the beta →</div></div>
+  </div>
+  <div id="grain" class="abs"></div>
+</div>
+
+<script>
+const K = 300 / 390;          // app px → phone screen px
+const META = __META__;
+const ART = ["shirt_1E3A8A","trousers_C3B091","loafers_8B5A2B","knit_7F1D1D","jeans_1F3A5F_p_denim","blazer_1F2A44","coat_C19A6B","sneakers_FAFAFA","dress_556B2F","watch_C0C0C0","tee_F2F2F2_p_stripes","bag_7A5236"];
+const CHAPTERS = [[0, 8.5], [8.5, 12], [12, 18.5], [18.5, 25], [25, 33.5], [33.5, 41.5], [41.5, 47.5], [47.5, 53], [53, 60]];
+const DUR = 60;
+
+// ---------- helpers ----------
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const eo = (x) => 1 - Math.pow(1 - x, 3);
+const eio = (x) => (x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const back = (x) => { const c = 1.6; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const win = (t, a, b, f = .35) => Math.min(prog(t, a, a + f), 1 - prog(t, b - f, b));
+const show = (el, o, extra = "") => { el.style.opacity = o; el.style.visibility = o <= 0.001 ? "hidden" : "visible"; if (extra !== null) el.style.transform = extra; };
+const type = (txt, p) => txt.slice(0, Math.round(txt.length * clamp(p)));
+
+// progress bar
+CHAPTERS.forEach(() => { const d = document.createElement("div"); d.appendChild(document.createElement("i")); $("progress").appendChild(d); });
+
+// garment tiles
+const tiles = ART.map((a, i) => {
+  const d = document.createElement("div"); d.className = "tile abs";
+  d.innerHTML = `<img src="art/${a}.svg">`; $("tiles").appendChild(d); return d;
+});
+let s = 7; const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+// scattered above and below the headline band (y ≈ 230–540) so text stays readable
+const chaos = tiles.map((_, i) => ({ x: (i % 6) * 84 - 20 + rnd() * 40, y: (i < 6 ? 30 + rnd() * 150 : 610 + rnd() * 230), r: rnd() * 50 - 25, sc: .62 + rnd() * .35 }));
+const grid = tiles.map((_, i) => ({ x: 34 + (i % 4) * 121, y: 560 + Math.floor(i / 4) * 121, r: 0, sc: 1 }));
+const endGrid = tiles.map((_, i) => ({ x: 34 + (i % 4) * 121, y: 610 + Math.floor(i / 4) * 121, r: 0, sc: .95 }));
+
+// overlay factory
+const ov = (cls, html = "") => { const d = document.createElement("div"); d.className = "abs " + cls; d.innerHTML = html; $("overlays").appendChild(d); return d; };
+const fl = (cls, html = "") => { const d = document.createElement("div"); d.className = "abs " + cls; d.innerHTML = html; $("floating").appendChild(d); return d; };
+
+const cardEls = [1, 2, 3].map((n) => ov("card", `<img src="shots/card${n}.png"><div class="abs stamp" style="left:18px;color:var(--good);border-color:var(--good);transform:rotate(-12deg)">WEAR IT</div><div class="abs stamp" style="right:18px;color:var(--accent);border-color:var(--accent);transform:rotate(12deg)">NOT TODAY</div>`));
+const sel = (META.quizSel || []).map((q) => [ov("sel", ""), ov("check", "✓")]);
+const ripple = ov("ripple"); const finger = ov("finger");
+const fRipple = document.createElement("div"); fRipple.className = "abs ripple"; $("full").appendChild(fRipple);
+const fFinger = document.createElement("div"); fFinger.className = "abs finger"; $("full").appendChild(fFinger);
+const box = (el, x, y, w, h) => { el.style.left = x + "px"; el.style.top = y + "px"; if (w != null) { el.style.width = w + "px"; el.style.height = h + "px"; } };
+const highlight = ov("highlight");
+
+// floating chips
+const aiChip = fl("chip", `<b>AI READ</b> Navy blue · Linen · Formality 5/10`);
+const learnChip = fl("chip", `<b>LEARNED</b> Office · navy tops + beige bottoms`);
+const savedChip = fl("chip", `<span style="color:var(--good);font-weight:700">✓</span> Saved to your looks`);
+const washChip = fl("chip", `<b>IN THE WASH</b> Navy linen shirt · back in 2 days`);
+const shopChips = [fl("chip", `<b>YOUR SIZE</b> M`), fl("chip", `<b>FROM</b> Daraz`), fl("chip", `<b>WITHIN BUDGET</b> LKR 10,245 of 15,000`)];
+const noteEl = fl("note", `<div class="h">✦ STYLIST NOTE</div><div id="noteTxt"></div>`); noteEl.style.cssText += "left:40px;right:40px;bottom:96px;";
+
+const LEARNED = [
+  ["OFFICE", "Navy tops with beige bottoms", "×2"],
+  ["OFFICE", "Shirts with trousers", "×7"],
+  ["OFFICE", "Oxford shirt with chinos", "×5"],
+  ["OFFICE", "Brown suede loafers", "×5"],
+  ["OFFICE", "All-neutral looks", "×7"],
+];
+const learnedEls = LEARNED.map(([o, l, n]) => { const d = document.createElement("div"); d.className = "chip"; d.style.cssText = "margin:0 0 12px;font-size:17px;padding:12px 18px"; d.innerHTML = `<b>${o}</b> ${l} <span style="color:#a39d95;font-size:13px">${n}</span>`; $("learned").appendChild(d); return d; });
+
+function placeRipple(el, f, x, y, t, at) {
+  const p = prog(t, at, at + .55);
+  const on = t >= at - .5 && t <= at + .6;
+  // finger glides in, then taps
+  const fp = prog(t, at - .5, at);
+  show(f, on ? (t < at + .25 ? 1 : 1 - prog(t, at + .25, at + .55)) : 0, `translate(${x + (1 - eo(fp)) * 60}px, ${y + (1 - eo(fp)) * 90}px) scale(${t > at && t < at + .15 ? .85 : 1})`);
+  f.style.left = "0px"; f.style.top = "0px";
+  show(el, on && t >= at ? (1 - p) * .9 : 0, `translate(${x}px, ${y}px) scale(${.4 + p * 1.4})`);
+  el.style.left = "0px"; el.style.top = "0px";
+}
+
+function setScreen(src) { if ($("base").getAttribute("src") !== src) $("base").setAttribute("src", src); }
+
+// ---------- the frame ----------
+window.render = function (t) {
+  // progress
+  [...$("progress").children].forEach((d, i) => { const [a, b] = CHAPTERS[i]; d.firstChild.style.width = (prog(t, a, b) * 100) + "%"; });
+  const darkPhase = t < 4.6;
+  $("progress").className = "abs" + (darkPhase ? " dark" : "");
+  show($("bgDark"), darkPhase ? 1 : 1 - prog(t, 4.4, 5.2), null);
+
+  // tiles: chaos (0–8.5) → grid (brand) → away → end grid
+  tiles.forEach((el, i) => {
+    let P = chaos[i], o = 0;
+    const drift = Math.sin(t * .8 + i) * 8;
+    if (t < 8.6) {
+      o = Math.min(prog(t, .2 + i * .08, .8 + i * .08), 1) * (t < 4.6 ? .55 : .9);
+      P = { x: chaos[i].x + drift, y: chaos[i].y + Math.cos(t * .6 + i) * 10 - (t > 4.6 ? 0 : 0), r: chaos[i].r + drift, sc: chaos[i].sc };
+    } else if (t < 12.2) {
+      const k = eio(prog(t, 8.6 + i * .03, 9.6 + i * .03));
+      P = { x: chaos[i].x + (grid[i].x - chaos[i].x) * k, y: chaos[i].y + (grid[i].y - chaos[i].y) * k, r: chaos[i].r * (1 - k), sc: chaos[i].sc + (1 - chaos[i].sc) * k };
+      o = 1 - prog(t, 11.6, 12.2);
+    } else if (t > 53.2) {
+      const k = eo(prog(t, 53.4 + i * .05, 54.2 + i * .05));
+      P = { ...endGrid[i], y: endGrid[i].y + (1 - k) * 60 }; o = k;
+    }
+    show(el, o, `translate(${P.x}px, ${P.y}px) rotate(${P.r}deg) scale(${P.sc})`);
+  });
+
+  // 1 hook
+  show($("hook"), win(t, .3, 4.6), "");
+  show($("hookEye"), prog(t, .3, .9), "");
+  $("hookQuote").textContent = type("“I have nothing to wear.”", prog(t, 1.0, 2.6));
+  show($("hookSub"), prog(t, 3.0, 3.6), `translateY(${(1 - eo(prog(t, 3.0, 3.6))) * 10}px)`);
+
+  // 2 familiar
+  show($("familiar"), win(t, 4.8, 8.5), "");
+  show($("fam1"), prog(t, 4.8, 5.3), `scale(${.9 + .1 * back(prog(t, 4.8, 5.4))})`);
+  ["fam2", "fam3", "fam4"].forEach((id, i) => show($(id), prog(t, 5.6 + i * .7, 6.0 + i * .7), `translateY(${(1 - eo(prog(t, 5.6 + i * .7, 6.0 + i * .7))) * 14}px)`));
+
+  // 3 brand
+  show($("brand"), win(t, 8.6, 12.0), "");
+  show($("meet"), prog(t, 8.7, 9.1), "");
+  show($("logo"), prog(t, 9.0, 9.6), `scale(${.86 + .14 * back(prog(t, 9.0, 9.7))})`);
+  show($("tag"), prog(t, 9.9, 10.4), "");
+
+  // chapters + captions
+  const chapters = [
+    [12, 18.5, "Step 1", "Snap your clothes", "Photograph each piece. AI reads the colour, fabric and formality for you."],
+    [18.5, 25, "Step 2", "Tap looks you love", "Pick the office looks that feel like you. Like two similar ones and it learns the pattern."],
+    [25, 33.5, "Monday · 8:00 AM", "One tap: Office", "A full outfit from clothes Kavin already owns, suited to the occasion and the 27° humidity."],
+    [33.5, 41.5, "Wednesday", "Shirt's in the wash", "Not feeling it? Swipe left. After three, tap what's in the laundry and it plans around it."],
+    [41.5, 47.5, "Friday", "A wedding invite", "No formal shirt? It spots the gap and finds one in his size, within budget."],
+    [47.5, 53, "Every swipe", "It learns you", "Choose a style twice and it becomes yours. Office taste stays at the office."],
+  ];
+  let cap = "", capO = 0, ch = null;
+  for (const c of chapters) if (t >= c[0] && t < c[1]) ch = c;
+  if (ch) {
+    $("chapEye").textContent = ch[2]; $("chapT").textContent = ch[3];
+    show($("chap"), win(t, ch[0], ch[1], .4), `translateY(${(1 - eo(prog(t, ch[0], ch[0] + .5))) * 14}px)`);
+    cap = ch[4]; capO = win(t, ch[0] + .6, ch[1], .4);
+  } else show($("chap"), 0, "");
+  $("cap").textContent = cap; show($("cap"), capO, "");
+
+  // phone visibility + pose
+  const phoneOn = win(t, 12.2, 47.6, .45);
+  const ph = $("phone");
+  const enter = eo(prog(t, 12.2, 12.9));
+  show(ph, phoneOn, `translateY(${(1 - enter) * 120}px) scale(${.92 + .08 * enter})`);
+
+  // phone content per scene
+  const vp = $("content"); let y = 0;
+  $("nav").style.display = t < 18.5 ? "block" : "none";
+  $("full").style.display = "none";
+  cardEls.forEach((c) => show(c, 0, ""));
+  sel.forEach(([a, b]) => { show(a, 0, ""); show(b, 0, ""); });
+  show(highlight, 0, "");
+  show(ripple, 0, ""); show(finger, 0, ""); show(fRipple, 0, ""); show(fFinger, 0, "");
+
+  if (t < 18.5) {
+    setScreen("shots/wardrobe.png");
+    y = -eio(prog(t, 13.2, 18.2)) * 560;
+  } else if (t < 25) {
+    setScreen("shots/quiz-unselected.png");
+    y = -eio(prog(t, 18.6, 19.6)) * 240;
+    (META.quizSel || []).forEach((q, i) => {
+      const at = 20.4 + i * 1.3;
+      const x = q.x * K, yy = q.y * K + y, w = q.width * K, h = q.height * K;
+      const on = t >= at ? 1 : 0;
+      const [boxEl, chk] = sel[i];
+      box(boxEl, x, yy, w, h); box(chk, x + w - 30, yy + 6);
+      show(boxEl, on, ""); show(chk, on, `scale(${on ? back(prog(t, at, at + .3)) : 0})`);
+      if (Math.abs(t - at) < .7) placeRipple(ripple, finger, x + w / 2, yy + h * .45, t, at);
+    });
+  } else if (t < 41.5) {
+    setScreen("shots/stylist-base.png");
+    y = 0;
+    const c0 = META.cards[0];
+    const cx = c0.x * K, cy = c0.y * K;
+    // Monday: tap Office, card rises, swipe right
+    if (t < 33.5) {
+      const oc = META.officeChip;
+      if (t < 26.8) placeRipple(ripple, finger, (oc.x + oc.width / 2) * K, (oc.y + oc.height / 2) * K, t, 26.0);
+      const rise = eo(prog(t, 26.4, 27.1));
+      const drag = eio(prog(t, 30.6, 31.4));
+      const dx = drag * 360;
+      const card = cardEls[0];
+      card.style.left = cx + "px"; card.style.top = cy + "px";
+      show(card, t < 26.4 ? 0 : 1, `translate(${dx}px, ${(1 - rise) * 60}px) rotate(${dx / 22}deg)`);
+      card.children[1].style.opacity = clamp(dx / 120); card.children[2].style.opacity = 0;
+      if (t > 30.1 && t < 31.0) placeRipple(ripple, finger, cx + 140 + drag * 200, cy + 240, t, 30.6);
+    } else {
+      // Wednesday: three quick lefts, then laundry sheet
+      const order = [1, 2, 0], starts = [34.2, 35.2, 36.2];
+      order.forEach((n, i) => {
+        const card = cardEls[n];
+        const a = starts[i];
+        const inP = eo(prog(t, a - .25, a + .1));
+        const drag = eio(prog(t, a + .45, a + .95));
+        const dx = -drag * 380;
+        card.style.left = cx + "px"; card.style.top = cy + "px";
+        const vis = t >= a - .25 && t < a + 1.0 ? 1 : 0;
+        show(card, vis, `translate(${dx}px, ${(1 - inP) * 40}px) rotate(${dx / 22}deg)`);
+        card.children[2].style.opacity = clamp(-dx / 120); card.children[1].style.opacity = 0;
+      });
+      if (t > 37.1) {
+        $("full").style.display = "block";
+        const up = eo(prog(t, 37.1, 37.6));
+        $("full").style.transform = `translateY(${(1 - up) * 650}px)`;
+        $("fullImg").setAttribute("src", t < 38.55 ? "shots/laundry-open.png" : "shots/laundry.png");
+        const lt = META.laundryTile;
+        placeRipple(fRipple, fFinger, (lt.x + lt.width / 2) * K, (lt.y + lt.height / 2) * K, t, 38.5);
+      }
+    }
+  } else {
+    setScreen("shots/shop.png");
+    const sf = META.shopFirst;
+    y = -eio(prog(t, 42.0, 43.2)) * (sf.y * K - 70);
+    box(highlight, sf.x * K - 4, sf.y * K + y - 4, sf.width * K + 8, sf.height * K + 8);
+    show(highlight, prog(t, 43.3, 43.7), "");
+  }
+  vp.style.transform = `translateY(${y}px)`;
+
+  // floating chips (stage coords)
+  const pop = (el, a, b, x, yy) => { const p = back(prog(t, a, a + .35)); el.style.left = x + "px"; el.style.top = yy + "px"; show(el, win(t, a, b, .3), `scale(${t < a ? .6 : .6 + .4 * p})`); };
+  pop(aiChip, 15.4, 18.4, 24, 690);
+  pop(learnChip, 23.3, 25.0, 40, 700);
+  pop(savedChip, 31.5, 33.4, 150, 700);
+  pop(washChip, 39.0, 41.4, 64, 700);
+  shopChips.forEach((c, i) => pop(c, 43.8 + i * .35, 47.4, [96, 262, 110][i], [720, 720, 768][i]));
+  // stylist note types while Monday's card is shown
+  show(noteEl, win(t, 27.3, 30.4, .3), "");
+  $("noteTxt").textContent = type("Navy linen over khaki chinos – breathable for a humid 27°. You keep coming back to navy tops with beige bottoms.", prog(t, 27.4, 29.8));
+  if (t > 27.3 && t < 30.4) show($("cap"), 0, "");
+
+  // learned
+  show($("learned"), win(t, 47.6, 53.0, .4), "");
+  learnedEls.forEach((el, i) => { const a = 48.3 + i * .45; show(el, prog(t, a, a + .3), `translateX(${(1 - eo(prog(t, a, a + .4))) * -30}px)`); });
+
+  // end
+  show($("end"), prog(t, 53.2, 53.9), `translateY(${(1 - eo(prog(t, 53.2, 54))) * 20}px)`);
+  show($("endLine"), prog(t, 54.0, 54.5), "");
+  show($("endSub"), prog(t, 54.6, 55.1), "");
+  show($("endCta"), prog(t, 55.3, 55.7), `scale(${.8 + .2 * back(prog(t, 55.3, 55.8))})`);
+};
+window.render(0);
+</script>
+</body>
+</html>
