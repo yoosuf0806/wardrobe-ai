@@ -1,6 +1,6 @@
 import type { StyleGap } from "../engine/gaps";
 import type { RankedProduct } from "../shopping/types";
-import type { GarmentAttributes, OutfitLog, Profile, WardrobeItem, Weather } from "../types";
+import type { GarmentAttributes, Inspiration, OutfitLog, Profile, WardrobeItem, Weather } from "../types";
 
 export interface NewImage {
   data: Buffer;
@@ -28,6 +28,9 @@ export interface Repository {
   setLaundry(itemIds: string[], inLaundry: boolean): Promise<void>;
   /** Record a swipe decision (training signal for future personalisation). */
   /** Swipe decisions from the last `days` days (cooldown + preference learning). */
-  listSwipes(days: number): Promise<{ item_ids: string[]; decision: "accept" | "reject"; at: string }[]>;
+  listSwipes(days: number): Promise<{ item_ids: string[]; decision: "accept" | "reject"; at: string; occasion?: string }[]>;
+  listInspirations(): Promise<Inspiration[]>;
+  addInspiration(i: Omit<Inspiration, "id" | "created_at">): Promise<Inspiration>;
+  deleteInspiration(id: string): Promise<void>;
   recordSwipe(swipe: { occasion: string; item_ids: string[]; decision: "accept" | "reject"; round: number }): Promise<void>;
 }

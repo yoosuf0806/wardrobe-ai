@@ -1,6 +1,7 @@
 import "server-only";
 import { analyzeMatchGaps, analyzeThinInventory, analyzeWearFrequency, type GapSpec, type StyleGap } from "../engine/gaps";
-import { learnPreferences, likedColorFamilies } from "../engine/learning";
+import { likedColorFamilies } from "../engine/learning";
+import { learnTaste } from "./taste";
 import { QUICK_OCCASIONS } from "../engine/occasions";
 import { isInLaundry, recommendOutfits } from "../engine/recommend";
 import type { Repository } from "../data/repository";
@@ -62,8 +63,7 @@ export async function pickForGap(gap: StyleGap, provider: ShoppingProvider): Pro
 
 /** Profile with learned colour likes attached (runtime only) so gap specs reflect taste. */
 export async function profileWithTaste(repo: Repository, profile: Profile) {
-  const [items, logs, swipes] = await Promise.all([repo.listItems(), repo.listLogs(180), repo.listSwipes(180)]);
-  const learned = learnPreferences({ logs, swipes, items, style: profile.style_profile });
+  const { learned, items, logs } = await learnTaste(repo, profile);
   return { profile: { ...profile, style_profile: { ...profile.style_profile, learned_colors: likedColorFamilies(learned) } }, items, logs, learned };
 }
 

@@ -316,7 +316,7 @@ function scoreEnsemble(parts: Pick<OutfitCandidate, "top" | "bottom" | "onePiece
 
   let score = W.formality * fScore + W.color * harmony.score + W.body * body + W.weather * weather + W.freshness * fresh;
   if (accessory) score += 0.02;
-  const taste = learnedScore(clothes, ctx.learned);
+  const taste = learnedScore(clothes, ctx.learned, ctx.occasion.key);
   score += taste.delta + styleBonus(ctx.style, harmony.scheme);
   score -= clothes.filter((p) => ctx.avoid.has(p.id)).length * AVOID_PENALTY;
   if (!complete) score *= 0.6;

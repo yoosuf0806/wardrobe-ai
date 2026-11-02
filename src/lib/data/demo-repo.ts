@@ -4,7 +4,7 @@ import type { NewImage, Repository } from "./repository";
 import { DEMO_USER_ID, seedItems, seedLogs, seedProfile } from "./seed";
 import type { StyleGap } from "../engine/gaps";
 import type { RankedProduct } from "../shopping/types";
-import type { GarmentAttributes, OutfitLog, Profile, WardrobeItem, Weather } from "../types";
+import type { GarmentAttributes, Inspiration, OutfitLog, Profile, WardrobeItem, Weather } from "../types";
 
 // In-memory store for DEMO mode (no Supabase configured). Survives hot reloads
 // via globalThis, resets on server restart. Single shared demo user.
@@ -14,13 +14,14 @@ interface DemoState {
   logs: OutfitLog[];
   gaps: { gap: StyleGap; products: RankedProduct[] }[];
   swipes: { occasion: string; item_ids: string[]; decision: "accept" | "reject"; round: number; at: string }[];
+  inspirations: Inspiration[];
 }
 
 const g = globalThis as unknown as { __smartstylistDemo?: DemoState };
 function state(): DemoState {
   if (!g.__smartstylistDemo) {
     const items = seedItems();
-    g.__smartstylistDemo = { profile: seedProfile(), items, logs: seedLogs(items), gaps: [], swipes: [] };
+    g.__smartstylistDemo = { profile: seedProfile(), items, logs: seedLogs(items), gaps: [], swipes: [], inspirations: [] };
   }
   return g.__smartstylistDemo;
 }
@@ -111,6 +112,19 @@ export class DemoRepository implements Repository {
   async listSwipes(days: number) {
     const since = Date.now() - days * 86_400_000;
     return structuredClone(state().swipes.filter((s) => new Date(s.at).getTime() >= since));
+  }
+  async listInspirations() {
+    return structuredClone(state().inspirations ?? []);
+  }
+  async addInspiration(i: Omit<Inspiration, "id" | "created_at">) {
+    const s = state();
+    const row: Inspiration = { ...i, id: randomUUID(), created_at: new Date().toISOString() };
+    s.inspirations = [row, ...(s.inspirations ?? [])].slice(0, 60);
+    return structuredClone(row);
+  }
+  async deleteInspiration(id: string) {
+    const s = state();
+    s.inspirations = (s.inspirations ?? []).filter((x) => x.id !== id);
   }
   async recordSwipe(swipe: { occasion: string; item_ids: string[]; decision: "accept" | "reject"; round: number }) {
     state().swipes.unshift({ ...swipe, at: new Date().toISOString() });

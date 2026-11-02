@@ -204,3 +204,21 @@ export interface OutfitLog {
   worn_on: string; // date
   created_at: string;
 }
+
+/** A piece read from an inspiration photo. */
+export interface InspirationPiece {
+  category: Category;
+  subcategory: string;
+  color_hex: string;
+  color_name: string;
+  pattern: Pattern;
+}
+
+/** An outfit photo the user saved because they like the look. */
+export interface Inspiration {
+  id: string;
+  occasion: string | null;
+  pieces: InspirationPiece[];
+  thumb: string | null;
+  created_at: string;
+}

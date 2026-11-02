@@ -84,7 +84,10 @@ export async function styleWithClaude(args: {
     .filter(([, w]) => w >= 0.4)
     .sort((a, b) => b[1] - a[1])
     .map(([a]) => ARCHETYPE_LABELS[a]);
-  const likes = learned.filter((l) => l.liked).slice(0, 6).map((l) => `${l.label} (chosen ${l.count}×)`);
+  const likes = learned
+    .filter((l) => l.liked && (!l.occasion || l.occasion === occasion.key))
+    .slice(0, 8)
+    .map((l) => `${l.label}${l.occasion ? " (for this occasion)" : ""} – ${l.count}×`);
   const dislikes = learned.filter((l) => !l.liked).slice(0, 4).map((l) => l.label);
   if (candidates.length === 0) return null;
   const ids = candidates.map((_, i) => `C${i + 1}`);

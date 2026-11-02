@@ -9,6 +9,7 @@ import { baselineRulesFor } from "@/lib/engine/body-rules";
 import { ARCHETYPE_LABELS, BODY_SHAPE_LABELS, type BodyShape, type FitPreferences, type Profile } from "@/lib/types";
 
 type Tri = boolean | null;
+const OCC_LABEL: Record<string, string> = { office: "Office", casual_date: "Date", formal_event: "Formal", party: "Party", gym: "Gym" };
 const SHAPES: BodyShape[] = ["hourglass", "rectangle", "inverted_triangle", "pear", "oval"];
 const OVERRIDES: { key: "allow_slim_fit" | "allow_oversized" | "allow_cropped_tops" | "allow_horizontal_stripes" | "allow_bold_patterns"; title: string; desc: string }[] = [
   { key: "allow_slim_fit", title: "Slim-fit", desc: "Tailored, close-cut pieces" },
@@ -177,7 +178,7 @@ export default function ProfilePage() {
       <section className="card space-y-4 p-6">
         <div>
           <p className="eyebrow">What we&apos;ve learned</p>
-          <p className="mt-1 text-xs text-muted">When you choose a similar style twice, we start favouring it. Remove anything that isn&apos;t you.</p>
+          <p className="mt-1 text-xs text-muted">From outfits you wear, looks you like in the style quiz and your inspiration photos. When a combination shows up twice, we start building it from your wardrobe. Remove anything that isn&apos;t you.</p>
         </div>
         {!learned ? (
           <p className="text-sm text-muted">Loading…</p>
@@ -194,6 +195,7 @@ export default function ProfilePage() {
                   <div className="flex flex-wrap gap-2">
                     {list.map((l) => (
                       <span key={l.key} className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm ${liked ? "border-line bg-surface" : "border-dashed border-line text-muted"}`}>
+                        {l.occasion && <span className="text-[11px] uppercase tracking-wider text-accent">{OCC_LABEL[l.occasion] ?? l.occasion}</span>}
                         {l.label}
                         <span className="text-[11px] text-faint">×{l.count}</span>
                         <button

@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NewImage, Repository } from "./repository";
 import type { StyleGap } from "../engine/gaps";
 import type { RankedProduct } from "../shopping/types";
-import { DEFAULT_FIT_PREFERENCES, DEFAULT_SIZES, EMPTY_STYLE_PROFILE, type GarmentAttributes, type OutfitLog, type Profile, type WardrobeItem, type Weather } from "../types";
+import { DEFAULT_FIT_PREFERENCES, DEFAULT_SIZES, EMPTY_STYLE_PROFILE, type GarmentAttributes, type Inspiration, type OutfitLog, type Profile, type WardrobeItem, type Weather } from "../types";
 
 const BUCKET = "wardrobe";
 const ITEM_COLUMNS =
@@ -140,9 +140,26 @@ export class SupabaseRepository implements Repository {
 
   async listSwipes(days: number): Promise<{ item_ids: string[]; decision: "accept" | "reject"; at: string }[]> {
     const since = new Date(Date.now() - days * 86_400_000).toISOString();
-    const { data, error } = await this.db.from("outfit_swipes").select("item_ids,decision,created_at").gte("created_at", since).order("created_at", { ascending: false }).limit(500);
+    const { data, error } = await this.db.from("outfit_swipes").select("item_ids,decision,created_at,occasion").gte("created_at", since).order("created_at", { ascending: false }).limit(500);
     if (error) throw error;
-    return (data ?? []).map((r) => ({ item_ids: r.item_ids as string[], decision: r.decision as "accept" | "reject", at: r.created_at as string }));
+    return (data ?? []).map((r) => ({ item_ids: r.item_ids as string[], decision: r.decision as "accept" | "reject", at: r.created_at as string, occasion: r.occasion as string }));
+  }
+
+  async listInspirations(): Promise<Inspiration[]> {
+    const { data, error } = await this.db.from("style_inspirations").select("id,occasion,pieces,thumb,created_at").order("created_at", { ascending: false }).limit(60);
+    if (error) throw error;
+    return (data ?? []) as Inspiration[];
+  }
+
+  async addInspiration(i: Omit<Inspiration, "id" | "created_at">): Promise<Inspiration> {
+    const { data, error } = await this.db.from("style_inspirations").insert({ ...i, user_id: this.userId }).select("id,occasion,pieces,thumb,created_at").single();
+    if (error) throw error;
+    return data as Inspiration;
+  }
+
+  async deleteInspiration(id: string): Promise<void> {
+    const { error } = await this.db.from("style_inspirations").delete().eq("id", id);
+    if (error) throw error;
   }
 
   async recordSwipe(swipe: { occasion: string; item_ids: string[]; decision: "accept" | "reject"; round: number }): Promise<void> {

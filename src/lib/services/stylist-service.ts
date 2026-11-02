@@ -5,10 +5,8 @@ import { analyzeMatchGaps, type StyleGap } from "../engine/gaps";
 import { resolveOccasion } from "../engine/occasions";
 import { REJECT_COOLDOWN_DAYS, describe, itemIds, outfitKey, recommendOutfits, type OutfitCandidate } from "../engine/recommend";
 import { lookTitle } from "../engine/titles";
-import { learnPreferences, type LearnedPreference } from "../engine/learning";
-
-/** How far back outfit history is used to learn preferences. */
-export const HISTORY_DAYS = 180;
+import { HISTORY_DAYS, learnTaste } from "./taste";
+export { HISTORY_DAYS };
 import type { Repository } from "../data/repository";
 import { getShoppingProvider } from "../shopping/providers";
 import { pickForGap } from "./shop-service";
@@ -86,8 +84,8 @@ function engineTitle(c: OutfitCandidate): string {
 }
 
 export async function recommend(repo: Repository, req: RecommendRequest): Promise<RecommendResponse> {
-  const [profile, items, swipes, logs] = await Promise.all([repo.getProfile(), repo.listItems(), repo.listSwipes(HISTORY_DAYS), repo.listLogs(HISTORY_DAYS)]);
-  const learned = learnPreferences({ logs, swipes, items, style: profile.style_profile });
+  const [profile, swipes] = await Promise.all([repo.getProfile(), repo.listSwipes(HISTORY_DAYS)]);
+  const { learned, items } = await learnTaste(repo, profile);
   const cooldownSince = Date.now() - REJECT_COOLDOWN_DAYS * 86_400_000;
   const recentRejects = swipes.filter((s) => s.decision === "reject" && new Date(s.at).getTime() >= cooldownSince).map((s) => s.item_ids);
   const occasion = resolveOccasion(req.occasion, req.formality);

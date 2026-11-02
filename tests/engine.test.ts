@@ -281,6 +281,8 @@ describe("soft long-sleeve preference", () => {
 import { colorFamily, learnPreferences } from "@/lib/engine/learning";
 
 describe("preference learning (style chosen twice)", () => {
+  // logs below are "Office" outfits, so preferences are learned as office-only ("@office|…")
+  const find = (l: ReturnType<typeof learnPreferences>, key: string) => l.find((x) => x.key === key || x.key.endsWith(`|${key}`));
   const log = (ids: string[], d: number, feedback: number | null = null) => ({
     id: `log-${d}`, user_id: "u", occasion: "Office", item_ids: ids, weather: null, stylist_note: null, feedback,
     worn_on: new Date(NOW.getTime() - d * 86_400_000).toISOString().slice(0, 10), created_at: NOW.toISOString(),
@@ -298,12 +300,13 @@ describe("preference learning (style chosen twice)", () => {
 
   it("needs two outfits before a style becomes a preference", () => {
     const once = learnPreferences({ logs: [log([navyShirt.id, jeans.id, sneakers.id], 1)], swipes: [], items });
-    expect(once.find((l) => l.key === "pair:linen shirt+jeans")).toBeUndefined();
+    expect(find(once, "pair:linen shirt+jeans")).toBeUndefined();
     const twice = learnPreferences({ logs: [log([navyShirt.id, jeans.id, sneakers.id], 1), log([navyShirt.id, jeans.id, sneakers.id], 4)], swipes: [], items });
-    const pair = twice.find((l) => l.key === "pair:linen shirt+jeans");
+    const pair = find(twice, "pair:linen shirt+jeans");
     expect(pair?.liked).toBe(true);
     expect(pair?.label).toBe("Linen shirt with jeans");
-    expect(twice.find((l) => l.key === "color:navy")?.liked).toBe(true);
+    expect(find(twice, "color:navy")?.liked).toBe(true);
+    expect(pair?.occasion).toBe("office");
   });
 
   it("learns soft dislikes from repeated rejections and low ratings", () => {
@@ -313,19 +316,19 @@ describe("preference learning (style chosen twice)", () => {
       swipes: [{ item_ids: [byName("breton striped tee").id, jeans.id, sneakers.id], decision: "reject", at }],
       items,
     });
-    const stripes = learned.find((l) => l.key === "pattern:horizontal_stripes");
+    const stripes = find(learned, "pattern:horizontal_stripes");
     expect(stripes?.liked).toBe(false);
     expect(stripes!.weight).toBeLessThan(0);
   });
 
   it("forgets what the user dismissed", () => {
     const logs = [log([navyShirt.id, jeans.id, sneakers.id], 1), log([navyShirt.id, chinos.id, sneakers.id], 3)];
-    const style = { archetypes: {}, palettes: {}, liked_looks: [], disliked_looks: [], completed_at: null, dismissed_learned: ["color:navy"] };
-    expect(learnPreferences({ logs, swipes: [], items, style }).some((l) => l.key === "color:navy")).toBe(false);
+    const style = { archetypes: {}, palettes: {}, liked_looks: [], disliked_looks: [], completed_at: null, dismissed_learned: ["@office|color:navy"] };
+    expect(learnPreferences({ logs, swipes: [], items, style }).some((l) => l.key.endsWith("color:navy"))).toBe(false);
   });
 
   it("boosts outfits matching learned preferences", () => {
-    const occ = resolveOccasion("Casual day out");
+    const occ = resolveOccasion("Office");
     const base = { items, profile: profile(), occasion: occ, weather: weather(22), now: NOW };
     const logs = [log([navyShirt.id, jeans.id, sneakers.id], 1), log([navyShirt.id, jeans.id, sneakers.id], 5)];
     const learned = learnPreferences({ logs, swipes: [], items });
@@ -348,12 +351,12 @@ describe("style quiz", () => {
     expect(both.some((l) => l.gender === "womens") && both.some((l) => l.gender === "mens")).toBe(true);
   });
   it("turns likes into archetype affinities", () => {
-    const shown = looksFor("mens");
-    const liked = shown.filter((l) => l.archetype === "classic" || l.id === "m-tonal-grey").map((l) => l.id);
+    const shown = looksFor("mens", "office");
+    const liked = shown.filter((l) => l.archetype === "classic" || l.id === "m-off-taupe-polo").map((l) => l.id);
     const s = scoreStyle(shown, liked);
     expect(s.archetypes.classic).toBe(1);
-    expect(s.archetypes.minimal).toBe(0.5);
-    expect(topArchetypes(s.archetypes)).toEqual(["classic", "minimal"]);
+    expect(s.archetypes.minimal).toBe(0.17); // 1 minimal like vs 6 classic likes
+    expect(topArchetypes(s.archetypes)).toEqual(["classic"]);
   });
   it("puts the style keyword into shopping queries", () => {
     const p = profile({ department: "mens", style_profile: { archetypes: { minimal: 1 }, palettes: {}, liked_looks: [], disliked_looks: [], completed_at: NOW.toISOString(), dismissed_learned: [] } });
@@ -396,4 +399,48 @@ describe("sample product illustrations", () => {
     expect(svg.startsWith("<svg")).toBe(true);
     expect(svg.toLowerCase()).toContain("#1e3a8a");
   });
+});
+
+import { learnedScore, outfitFeatures } from "@/lib/engine/learning";
+import { STYLE_LOOKS, quizEvents } from "@/lib/style/looks";
+
+describe("quiz likes + inspiration teach the stylist", () => {
+  it("extracts garment combinations and colour pairings", () => {
+    const keys = outfitFeatures([byName("navy linen shirt"), byName("khaki chinos"), byName("brown suede loafers")]).map((f) => f.key);
+    expect(keys).toContain("combo:shirt+trousers");
+    expect(keys).toContain("colors:navy+beige & camel");
+  });
+
+  it("every quiz look has a photo query and at least a top/dress and shoes", () => {
+    for (const l of STYLE_LOOKS) {
+      expect(l.query.length).toBeGreaterThan(10);
+      expect(l.pieces.some((p) => ["tee", "shirt", "blouse", "knit", "hoodie", "dress"].includes(p.kind))).toBe(true);
+      expect(l.pieces.some((p) => ["sneakers", "boots", "heels", "loafers", "flats"].includes(p.kind))).toBe(true);
+    }
+    expect(STYLE_LOOKS.filter((l) => l.gender === "mens" && l.occasion === "office").length).toBeGreaterThanOrEqual(15);
+  });
+
+  it("two liked office looks with navy tops + beige bottoms become an office preference", () => {
+    const learned = learnPreferences({ logs: [], swipes: [], items, extra: quizEvents(["m-off-navy-beige", "m-off-navy-knit-beige"]) });
+    const office = learned.find((l) => l.key === "@office|colors:navy+beige & camel");
+    expect(office?.liked).toBe(true);
+    expect(office?.label).toBe("Navy tops with beige & camel bottoms");
+    // one like alone isn't enough
+    expect(learnPreferences({ logs: [], swipes: [], items, extra: quizEvents(["m-off-navy-beige"]) }).length).toBe(0);
+  });
+
+  it("office preferences apply to office outfits only", () => {
+    const learned = learnPreferences({ logs: [], swipes: [], items, extra: quizEvents(["m-off-navy-beige", "m-off-navy-knit-beige"]) });
+    const pieces = [byName("navy linen shirt"), byName("khaki chinos"), byName("brown suede loafers")];
+    expect(learnedScore(pieces, learned, "office").delta).toBeGreaterThan(learnedScore(pieces, learned, "gym").delta);
+  });
+
+  it("the stylist then builds that combination from the user's own wardrobe", () => {
+    const learned = learnPreferences({ logs: [], swipes: [], items, extra: quizEvents(["m-off-navy-beige", "m-off-navy-knit-beige", "m-off-sage-beige"]) });
+    const res = recommendOutfits({ items, profile: profile(), occasion: resolveOccasion("Office"), weather: weather(22), now: NOW, learned });
+    const first = res.candidates[0];
+    expect(first.bottom?.subcategory).toBe("khaki chinos");
+    expect(first.reasons.join(" ")).toMatch(/You keep coming back to/);
+  });
+
 });
