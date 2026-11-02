@@ -1,3 +1,4 @@
+import { artUrl } from "../samples/garments";
 // Sample wardrobe used by DEMO mode and the test-suite.
 import { DEFAULT_FIT_PREFERENCES, DEFAULT_SIZES, EMPTY_STYLE_PROFILE, type GarmentAttributes, type OutfitLog, type Profile, type WardrobeItem } from "../types";
 
@@ -37,7 +38,7 @@ export function seedItems(userId = DEMO_USER_ID, now = new Date()): WardrobeItem
     ...s,
     id: `00000000-0000-4000-9000-${String(i + 1).padStart(12, "0")}`,
     user_id: userId,
-    image_url: null, // rendered as garment art in the UI
+    image_url: artUrl({ secondary_colors: [], ...s }), // sample product illustration
     image_path: null,
     wear_count: 0,
     last_worn_at: null,

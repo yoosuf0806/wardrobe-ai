@@ -1,6 +1,9 @@
 "use client";
 import { useState } from "react";
 import { Brand } from "@/components/nav";
+import { artUrlForKind, type ArtKind } from "@/lib/samples/garments";
+
+const COLLAGE: [ArtKind, string][] = [["blazer", "#1F2A44"], ["knit", "#7F1D1D"], ["dress", "#556B2F"], ["loafers", "#8B5A2B"], ["shirt", "#F4F4F0"], ["bag", "#7A5236"]];
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export default function LoginPage() {
@@ -21,7 +24,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="mx-auto mt-16 max-w-sm space-y-6">
+    <div className="mx-auto mt-10 max-w-sm space-y-6">
+      <div className="grid grid-cols-3 gap-2" aria-hidden>
+        {COLLAGE.map(([k, c], i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={i} src={artUrlForKind(k, c)} alt="" className={`aspect-square w-full rounded-2xl object-cover`} />
+        ))}
+      </div>
       <div className="text-center">
         <h1><Brand className="text-[52px]" /></h1>
         <p className="mt-2 text-[15px] text-muted">Your wardrobe, styled for the day ahead.</p>

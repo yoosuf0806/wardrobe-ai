@@ -2,6 +2,7 @@ import "server-only";
 import type { GapSpec } from "../engine/gaps";
 import type { ProductListing, ShoppingProvider } from "./types";
 import { DarazShoppingProvider } from "./daraz";
+import { artUrl } from "../samples/garments";
 
 // ---------------------------------------------------------------------------
 // Amazon (primary)
@@ -149,6 +150,7 @@ export class MockShoppingProvider implements ShoppingProvider {
       const r = ((seed >>> (i % 16)) + i * 97) % 100;
       const price = Math.round(spec.max_price * (0.35 + (r / 100) * 0.9));
       const colorWord = i % 4 === 3 ? "black" : spec.color_name;
+      const colorHex = i % 4 === 3 ? "#151515" : spec.color_hex;
       const brand = brands[(i + seed) % brands.length];
       return {
         title: `${brand} ${adjectives[i % adjectives.length]} ${colorWord} ${spec.subcategory}`.replace(/\b\w/g, (m) => m.toUpperCase()),
@@ -156,7 +158,7 @@ export class MockShoppingProvider implements ShoppingProvider {
         price,
         currency: spec.currency,
         url: this.real.searchUrl({ ...spec, query: `${colorWord} ${spec.subcategory}` }),
-        image_url: null,
+        image_url: artUrl({ category: spec.category, subcategory: spec.subcategory, color_hex: colorHex }),
         rating: Math.round((3.6 + (r % 14) / 10) * 10) / 10,
         reviews: 10 + r * 7,
         prime: this.real.name === "amazon" ? r % 3 !== 0 : undefined,

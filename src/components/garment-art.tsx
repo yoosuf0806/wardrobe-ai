@@ -1,3 +1,4 @@
+import { artUrl } from "@/lib/samples/garments";
 import type { Category } from "@/lib/types";
 
 // Placeholder art for items without a photo (and product tiles without an
@@ -29,15 +30,19 @@ export function GarmentArt({ color, category, className = "" }: { color: string;
   );
 }
 
-export function ItemImage({ item, className = "" }: { item: { image_url: string | null; color_hex: string; category: Category; subcategory: string }; className?: string }) {
+export function ItemImage({
+  item,
+  className = "",
+}: {
+  item: { image_url: string | null; color_hex: string; category: Category; subcategory: string; pattern?: string; fabric_type?: string; secondary_colors?: string[] };
+  className?: string;
+}) {
+  // Items without a photo get a studio illustration in their own colour
+  const src = item.image_url ?? artUrl(item);
   return (
-    <div className={`overflow-hidden ${className}`}>
-      {item.image_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={item.image_url} alt={item.subcategory} draggable={false} className="h-full w-full object-cover" />
-      ) : (
-        <GarmentArt color={item.color_hex} category={item.category} />
-      )}
+    <div className={`overflow-hidden ${item.image_url?.startsWith("/art/") || !item.image_url ? "bg-[radial-gradient(circle_at_50%_40%,#f6f2ec,#e9e3d9)]" : "bg-[#efe9e0]"} ${className}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={item.subcategory} draggable={false} loading="lazy" className={`h-full w-full ${src.startsWith("/art/") ? "object-contain" : "object-cover"}`} />
     </div>
   );
 }

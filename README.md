@@ -6,7 +6,7 @@ An AI wardrobe and personal stylist. Photograph your clothes, get daily outfits 
 <img src="docs/screenshots/1-stylist.png" width="170" alt="Stylist: occasion chips and swipe deck">
 <img src="docs/screenshots/2-laundry.png" width="170" alt="Laundry prompt after 3 rejections">
 <img src="docs/screenshots/4-wardrobe.png" width="170" alt="Wardrobe">
-<img src="docs/screenshots/5-shop.png" width="170" alt="Shop: gap analysis with Amazon picks">
+<img src="docs/screenshots/5-shop.png" width="170" alt="Shop: gap analysis with Daraz picks">
 <img src="docs/screenshots/6-profile.png" width="170" alt="Profile: fit and preferences">
 <img src="docs/screenshots/7-style-quiz.png" width="170" alt="Style quiz">
 </p>
@@ -24,6 +24,7 @@ Four tabs: **Stylist · Wardrobe · Shop · Profile**.
 - **Wardrobe**: pieces grouped by category, each showing availability, colour, pattern and a formality bar. Tap a piece to **edit its details**, **change its photo**, put it in the laundry or remove it. The + button adds pieces: select **several photos at once**, and Claude reads each one so you can review it, then "Save & next".
 - **Shop**: gap analysis across your main occasions, your outfit history and the laundry. It covers missing pieces, formality ceilings, "only one gym top", backups for laundry items and weather gaps. Each gap gets one pick **in your size, in your style and liked colours**, split into within-budget and above-budget sections. The store is **Daraz** by default (free, no key; daraz.lk in LKR), and Amazon is an option. Budgets convert between currencies.
 - **Profile**: body shape is calculated from your bust/waist/hip measurements (no photos), or you pick it yourself. It also holds sizes (tops, dress/frock, waist, length/inseam, shoes), fit overrides (*Avoid · Auto · Allow*, which always beat body-type advice), "prefer long sleeves", and the per-item budget. Changes save automatically.
+- **Sample imagery**: a built-in library of studio-style product illustrations (26 garment types, in any colour, with stripes, denim, knit and floral textures) served from `/art/<kind>/<HEX>.svg`. They're used for the demo wardrobe, any piece without a photo, sample shop listings and the style quiz. Original artwork, so there are no licensing issues; real photos replace them automatically when present.
 - **Stylist engine**: deterministic rules (formality, colour harmony, body shape, weather, freshness, accessories) build the candidates; Claude picks and explains them. It works without an AI key too.
 
 ## Quick start
@@ -71,6 +72,8 @@ With no environment variables the app runs in **demo mode**: a seeded 16-piece w
 src/lib/engine/     deterministic styling core (pure TS, portable to React Native)
 src/lib/ai/         Claude: garment tagging + stylist re-ranker (structured outputs)
 src/lib/body/       body-shape classifier (from measurements)
+src/lib/samples/    product illustration library (served by src/app/art)
+src/lib/style/      style-quiz looks + archetype scoring
 src/lib/shopping/   provider interface (SerpAPI, mock) + ranking
 src/lib/data/       Repository interface → Supabase or in-memory demo
 src/app/            pages + API route handlers

@@ -375,3 +375,25 @@ describe("style quiz", () => {
     expect(withoutTaste.name).not.toBe(undefined);
   });
 });
+
+import { artKindFor, artUrl, garmentSvg } from "@/lib/samples/garments";
+
+describe("sample product illustrations", () => {
+  it("maps garments to the right drawing", () => {
+    expect(artKindFor("top", "grey crew-neck t-shirt")).toBe("tee");
+    expect(artKindFor("top", "white oxford shirt")).toBe("shirt");
+    expect(artKindFor("top", "burgundy merino sweater")).toBe("knit");
+    expect(artKindFor("bottom", "dark wash jeans")).toBe("jeans");
+    expect(artKindFor("footwear", "brown suede loafers")).toBe("loafers");
+    expect(artKindFor("footwear", "running shoes")).toBe("runners");
+    expect(artKindFor("accessory", "silver watch")).toBe("watch");
+    expect(artKindFor("outerwear", "camel wool overcoat")).toBe("coat");
+  });
+  it("gives every demo item an illustration URL and renders valid SVG", () => {
+    for (const i of items) expect(i.image_url).toMatch(/^\/art\/[a-z]+\/[0-9A-F]{6}\.svg/);
+    expect(artUrl({ category: "top", subcategory: "breton tee", color_hex: "#F2F2F2", pattern: "horizontal_stripes", secondary_colors: ["#1F2A44"] })).toBe("/art/tee/F2F2F2.svg?p=stripes&a=1F2A44");
+    const svg = garmentSvg("shirt", "#1E3A8A");
+    expect(svg.startsWith("<svg")).toBe(true);
+    expect(svg.toLowerCase()).toContain("#1e3a8a");
+  });
+});

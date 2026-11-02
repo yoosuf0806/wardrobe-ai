@@ -98,7 +98,7 @@ function PickCard({ pick, store, muted = false }: { pick: ShopPick; store: strin
       <div className="relative aspect-[4/3] overflow-hidden rounded-[20px]">
         {product?.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={product.image_url} alt={product.title} className="h-full w-full bg-white object-contain" />
+          <img src={product.image_url} alt={product.title} className={`h-full w-full object-contain ${product.image_url.startsWith("/art/") ? "bg-[radial-gradient(circle_at_50%_40%,#f6f2ec,#e9e3d9)]" : "bg-white"}`} />
         ) : (
           <GarmentArt color={gap.spec.color_hex} category={gap.spec.category} />
         )}
