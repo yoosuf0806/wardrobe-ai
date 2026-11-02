@@ -1,8 +1,12 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import type { LearnedPreference } from "@/lib/engine/learning";
+import { SUPPORTED_CURRENCIES } from "@/lib/shopping/fx";
+import { topArchetypes } from "@/lib/style/looks";
 import { classifyBodyShape, SHAPE_COPY } from "@/lib/body/classify";
 import { baselineRulesFor } from "@/lib/engine/body-rules";
-import { BODY_SHAPE_LABELS, type BodyShape, type FitPreferences, type Profile } from "@/lib/types";
+import { ARCHETYPE_LABELS, BODY_SHAPE_LABELS, type BodyShape, type FitPreferences, type Profile } from "@/lib/types";
 
 type Tri = boolean | null;
 const SHAPES: BodyShape[] = ["hourglass", "rectangle", "inverted_triangle", "pear", "oval"];
@@ -56,6 +60,7 @@ export default function ProfilePage() {
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [m, setM] = useState({ bust: "", waist: "", hip: "", unit: "cm" as "cm" | "in" });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [learned, setLearned] = useState<{ learned: LearnedPreference[]; outfits_logged: number } | null>(null);
 
   useEffect(() => {
     fetch("/api/profile").then(async (r) => {
@@ -64,6 +69,7 @@ export default function ProfilePage() {
       const p: Profile = j.profile;
       setProfile(p);
       setMode(j.mode);
+      fetch("/api/preferences").then(async (r2) => r2.ok && setLearned(await r2.json()));
       if (p.body_metrics) setM({ bust: String(p.body_metrics.bust), waist: String(p.body_metrics.waist), hip: String(p.body_metrics.hip), unit: p.body_metrics.unit });
     });
   }, []);
@@ -140,6 +146,83 @@ export default function ProfilePage() {
         {profile.body_shape_source === "manual" && derived && derived !== profile.body_shape && (
           <button className="text-xs text-accent" onClick={() => save({ body_shape: derived, body_shape_source: "detected" })}>
             Your measurements suggest {BODY_SHAPE_LABELS[derived]} — use that instead
+          </button>
+        )}
+      </section>
+
+      {/* Style */}
+      <section className="card space-y-4 p-6">
+        <p className="eyebrow">Your style</p>
+        {profile.style_profile.completed_at ? (
+          <>
+            <h2 className="display text-[34px]">
+              {topArchetypes(profile.style_profile.archetypes).map((a) => ARCHETYPE_LABELS[a]).join(" & ") || "Eclectic"}
+            </h2>
+            <p className="text-sm text-muted">From the {profile.style_profile.liked_looks.length} looks you liked. Used for outfit picks and new clothes.</p>
+            <Link href="/style" className="btn-ghost">
+              Retake style quiz
+            </Link>
+          </>
+        ) : (
+          <>
+            <p className="text-[15px] text-muted">Tell us which outfits feel like you – it takes a minute and shapes every suggestion.</p>
+            <Link href="/style" className="btn-primary">
+              Take the style quiz
+            </Link>
+          </>
+        )}
+      </section>
+
+      {/* Learned */}
+      <section className="card space-y-4 p-6">
+        <div>
+          <p className="eyebrow">What we&apos;ve learned</p>
+          <p className="mt-1 text-xs text-muted">When you choose a similar style twice, we start favouring it. Remove anything that isn&apos;t you.</p>
+        </div>
+        {!learned ? (
+          <p className="text-sm text-muted">Loading…</p>
+        ) : learned.learned.length === 0 ? (
+          <p className="text-sm text-muted">Nothing yet – swipe right on looks you wear and we&apos;ll pick up your habits.</p>
+        ) : (
+          <div className="space-y-3">
+            {[true, false].map((liked) => {
+              const list = learned.learned.filter((l) => l.liked === liked);
+              if (list.length === 0) return null;
+              return (
+                <div key={String(liked)}>
+                  <p className="label">{liked ? "You keep choosing" : "You tend to skip"}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {list.map((l) => (
+                      <span key={l.key} className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm ${liked ? "border-line bg-surface" : "border-dashed border-line text-muted"}`}>
+                        {l.label}
+                        <span className="text-[11px] text-faint">×{l.count}</span>
+                        <button
+                          aria-label={`Forget ${l.label}`}
+                          className="text-faint hover:text-accent"
+                          onClick={() => {
+                            setLearned({ ...learned, learned: learned.learned.filter((x) => x.key !== l.key) });
+                            save({ style_profile: { ...profile.style_profile, dismissed_learned: [...profile.style_profile.dismissed_learned, l.key] } });
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {profile.style_profile.dismissed_learned.length > 0 && (
+          <button
+            className="text-xs text-muted underline"
+            onClick={async () => {
+              save({ style_profile: { ...profile.style_profile, dismissed_learned: [] } });
+              setTimeout(() => fetch("/api/preferences").then(async (r) => r.ok && setLearned(await r.json())), 900);
+            }}
+          >
+            Restore {profile.style_profile.dismissed_learned.length} removed
           </button>
         )}
       </section>
@@ -246,7 +329,7 @@ export default function ProfilePage() {
         <p className="eyebrow">Shopping budget</p>
         <div className="flex items-center gap-5">
           <label className="flex w-36 shrink-0 items-baseline gap-1 rounded-2xl border border-line px-4 py-3">
-            <span className="text-muted">{profile.budget.currency === "USD" ? "$" : profile.budget.currency}</span>
+            <span className="text-muted">{profile.budget.currency === "USD" ? "$" : profile.budget.currency === "LKR" ? "Rs" : profile.budget.currency}</span>
             <input
               className="display w-full bg-transparent text-[34px] outline-none"
               inputMode="numeric"
@@ -255,9 +338,21 @@ export default function ProfilePage() {
               onChange={(e) => save({ budget: { ...profile.budget, max_per_item: Math.max(1, Number(e.target.value.replace(/\D/g, "")) || 1) } })}
             />
           </label>
-          <input type="range" min={10} max={500} step={5} value={Math.min(500, profile.budget.max_per_item)} onChange={(e) => save({ budget: { ...profile.budget, max_per_item: Number(e.target.value) } })} className="w-full accent-[var(--color-ink)]" aria-label="Budget slider" />
+          {(() => {
+            // slider range scales with the currency (≈ $10–$500)
+            const k = ({ USD: 1, EUR: 1, GBP: 1, AED: 4, INR: 80, LKR: 300, PKR: 280, BDT: 120, NPR: 135 } as Record<string, number>)[profile.budget.currency] ?? 1;
+            const step = k >= 100 ? 500 : 5;
+            return (
+              <input type="range" min={10 * k} max={500 * k} step={step} value={Math.min(500 * k, profile.budget.max_per_item)} onChange={(e) => save({ budget: { ...profile.budget, max_per_item: Number(e.target.value) } })} className="w-full accent-[var(--color-ink)]" aria-label="Budget slider" />
+            );
+          })()}
         </div>
-        <p className="text-sm text-muted">Maximum spend per item for gap-analysis suggestions.</p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-muted">Maximum spend per item for gap-analysis suggestions.</p>
+          <select className="input w-24 shrink-0 py-2" aria-label="Currency" value={profile.budget.currency} onChange={(e) => save({ budget: { ...profile.budget, currency: e.target.value } })}>
+            {SUPPORTED_CURRENCIES.map((c) => <option key={c}>{c}</option>)}
+          </select>
+        </div>
         <div className="flex items-center justify-between gap-3 border-t border-line pt-4">
           <span className="text-sm">Shop in</span>
           <Segmented value={profile.department} options={[{ v: "womens", l: "Women" }, { v: "mens", l: "Men" }, { v: "unisex", l: "Any" }]} onChange={(department) => save({ department })} />

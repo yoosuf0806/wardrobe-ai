@@ -16,6 +16,8 @@ export interface Repository {
   addItem(attrs: GarmentAttributes, image: NewImage | null, embedding: number[] | null, aiRaw: unknown): Promise<WardrobeItem>;
   updateItem(id: string, attrs: Partial<GarmentAttributes>): Promise<void>;
   archiveItem(id: string): Promise<void>;
+  /** Replace an item's photo (and embedding). */
+  updateItemImage(id: string, image: NewImage, embedding: number[] | null): Promise<void>;
   listLogs(sinceDays: number): Promise<OutfitLog[]>;
   addLog(log: { occasion: string; item_ids: string[]; weather: Weather | null; stylist_note: string | null }): Promise<OutfitLog>;
   setFeedback(logId: string, rating: number): Promise<void>;
@@ -23,7 +25,7 @@ export interface Repository {
   /** Put items in / take items out of the laundry. */
   setLaundry(itemIds: string[], inLaundry: boolean): Promise<void>;
   /** Record a swipe decision (training signal for future personalisation). */
-  /** item_ids of outfits rejected in the last `days` days (cooldown). */
-  listRejectedOutfits(days: number): Promise<string[][]>;
+  /** Swipe decisions from the last `days` days (cooldown + preference learning). */
+  listSwipes(days: number): Promise<{ item_ids: string[]; decision: "accept" | "reject"; at: string }[]>;
   recordSwipe(swipe: { occasion: string; item_ids: string[]; decision: "accept" | "reject"; round: number }): Promise<void>;
 }

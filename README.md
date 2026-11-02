@@ -8,6 +8,7 @@ An AI wardrobe and personal stylist. Photograph your clothes, get daily outfits 
 <img src="docs/screenshots/4-wardrobe.png" width="170" alt="Wardrobe">
 <img src="docs/screenshots/5-shop.png" width="170" alt="Shop: gap analysis with Amazon picks">
 <img src="docs/screenshots/6-profile.png" width="170" alt="Profile: fit and preferences">
+<img src="docs/screenshots/7-style-quiz.png" width="170" alt="Style quiz">
 </p>
 
 Architecture, design decisions and the evaluation of the original brief are in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
@@ -18,8 +19,10 @@ Four tabs: **Stylist · Wardrobe · Shop · Profile**.
 
 - **Stylist**: pick an occasion from the chips (Office, Casual Date, Formal Event, Gym, Party, or "Other…" for free text) and an outfit card appears straight away. Swipe right (or ✓) to wear it; it's saved to *Saved looks* and logged. Swipe left (or ✕) to skip. After 3 skips a sheet shows the pieces with their photos and asks *"Anything in the laundry?"* – mark them or skip. The next 3 outfits avoid everything already shown; only a category with no alternatives (e.g. your only office shoes) is reused. This continues until the combinations run out. Drag, buttons and ←/→ keys all work.
 - **2-day rules**: laundry items come back automatically after 2 days, and a rejected outfit isn't suggested again for 2 days.
-- **Wardrobe**: pieces grouped by category, each showing availability, colour, pattern and a formality bar. Tap a piece to put it in the laundry or remove it. The + button adds a piece: Claude vision reads the photo and you review the details.
-- **Shop**: gap analysis across your main occasions, your outfit history and the laundry. It covers missing pieces, formality ceilings, "only one gym top", backups for laundry items and weather gaps. Each gap gets one Amazon pick **in your size**, split into within-budget and above-budget sections. Every link carries the affiliate tag.
+- **Style quiz** (`/style`): outfit images for your gender (both for "Any"). Tap the ones you'd wear and we infer your style, e.g. *Classic & Minimal*, plus your preferred palettes. This tilts outfit picks and puts a style keyword into shopping searches ("minimalist", "boho"…). The looks are illustrated flat-lays; each has an `image_url` slot for curated photos.
+- **Learns from history**: when you choose a similar style **twice** (same colour family, garment type, pattern, fit, colour scheme or top+bottom pairing), it becomes a preference that boosts future outfits and shopping picks. Two rejections create a soft dislike. Profile → *What we've learned* lists everything, and you can remove anything that's wrong.
+- **Wardrobe**: pieces grouped by category, each showing availability, colour, pattern and a formality bar. Tap a piece to **edit its details**, **change its photo**, put it in the laundry or remove it. The + button adds pieces: select **several photos at once**, and Claude reads each one so you can review it, then "Save & next".
+- **Shop**: gap analysis across your main occasions, your outfit history and the laundry. It covers missing pieces, formality ceilings, "only one gym top", backups for laundry items and weather gaps. Each gap gets one pick **in your size, in your style and liked colours**, split into within-budget and above-budget sections. The store is **Daraz** by default (free, no key; daraz.lk in LKR), and Amazon is an option. Budgets convert between currencies.
 - **Profile**: body shape is calculated from your bust/waist/hip measurements (no photos), or you pick it yourself. It also holds sizes (tops, dress/frock, waist, length/inseam, shoes), fit overrides (*Avoid · Auto · Allow*, which always beat body-type advice), "prefer long sleeves", and the per-item budget. Changes save automatically.
 - **Stylist engine**: deterministic rules (formality, colour harmony, body shape, weather, freshness, accessories) build the candidates; Claude picks and explains them. It works without an AI key too.
 
@@ -50,8 +53,9 @@ With no environment variables the app runs in **demo mode**: a seeded 16-piece w
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Accounts, persistence, image storage |
 | `ANTHROPIC_API_KEY` | AI garment tagging and stylist notes (`STYLIST_MODEL`, `STYLIST_EFFORT` optional) |
 | `OPENWEATHER_API_KEY` | Live weather from the device location |
-| `AMAZON_ASSOCIATE_TAG` | **Required for revenue in production**: your Associates tag, added to every Amazon link (`AMAZON_DOMAIN` defaults to amazon.com) |
-| `SERPAPI_API_KEY` | Live Amazon product listings (via SerpAPI's Amazon engine) |
+| `SHOPPING_PROVIDER` | `daraz` (default, free), `amazon` or `google_shopping` |
+| `DARAZ_DOMAIN`, `DARAZ_AFFILIATE_URL_TEMPLATE` | Daraz country site, and your affiliate deep-link format (`{url}` placeholder) so purchases earn commission |
+| `AMAZON_ASSOCIATE_TAG`, `SERPAPI_API_KEY` | Amazon instead of Daraz: Associates tag on every link; SerpAPI (paid) for live listings |
 | `REMOVE_BG_API_KEY` | Background removal when saving items |
 | `FASHION_CLIP_ENDPOINT` | 512-d visual embeddings (pgvector) |
 

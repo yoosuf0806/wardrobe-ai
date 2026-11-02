@@ -1,6 +1,7 @@
 import "server-only";
 import type { GapSpec } from "../engine/gaps";
 import type { ProductListing, ShoppingProvider } from "./types";
+import { DarazShoppingProvider } from "./daraz";
 
 // ---------------------------------------------------------------------------
 // Amazon (primary)
@@ -39,6 +40,10 @@ export function amazonSearchUrl(spec: GapSpec): string {
  */
 export class AmazonShoppingProvider implements ShoppingProvider {
   name = "amazon";
+  store = "Amazon";
+  currency = "USD";
+  disclosure = "As an Amazon Associate SmartStylist earns from qualifying purchases. Prices and availability can change.";
+  searchUrl = amazonSearchUrl;
   constructor(private serpApiKey: string) {}
 
   async search(spec: GapSpec, limit: number): Promise<ProductListing[]> {
@@ -83,6 +88,10 @@ export class AmazonShoppingProvider implements ShoppingProvider {
 
 export class GoogleShoppingProvider implements ShoppingProvider {
   name = "google_shopping";
+  store = "Google Shopping";
+  currency = "USD";
+  disclosure = "Prices and availability can change.";
+  searchUrl = (spec: GapSpec) => `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(spec.query)}`;
   constructor(private apiKey: string, private country = "us") {}
 
   async search(spec: GapSpec, limit: number): Promise<ProductListing[]> {
@@ -119,10 +128,21 @@ export class GoogleShoppingProvider implements ShoppingProvider {
 // Mock (demo / development)
 // ---------------------------------------------------------------------------
 
+/** Deterministic sample listings for demos / offline development, shaped like the real store. */
 export class MockShoppingProvider implements ShoppingProvider {
   name = "mock";
+  store: string;
+  currency: string;
+  disclosure: string;
+  searchUrl: (spec: GapSpec) => string;
+  constructor(private real: ShoppingProvider) {
+    this.store = real.store;
+    this.currency = real.currency;
+    this.disclosure = real.disclosure;
+    this.searchUrl = real.searchUrl.bind(real);
+  }
   async search(spec: GapSpec, limit: number): Promise<ProductListing[]> {
-    const brands = ["Amazon Essentials", "Goodthreads", "Daily Ritual", "Northwind", "Linea Studio", "Basecamp"];
+    const brands = ["Basics Co", "Linea Studio", "Northwind", "Fieldhouse", "Atelier Nine", "Common Thread"];
     const adjectives = ["Classic", "Essential", "Tailored", "Modern", "Everyday", "Premium"];
     const seed = [...spec.query].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
     return Array.from({ length: limit + 3 }, (_, i) => {
@@ -132,23 +152,30 @@ export class MockShoppingProvider implements ShoppingProvider {
       const brand = brands[(i + seed) % brands.length];
       return {
         title: `${brand} ${adjectives[i % adjectives.length]} ${colorWord} ${spec.subcategory}`.replace(/\b\w/g, (m) => m.toUpperCase()),
-        merchant: "Amazon (demo)",
+        merchant: `${this.store} (sample)`,
         price,
         currency: spec.currency,
-        url: amazonSearchUrl({ ...spec, query: `${brand} ${colorWord} ${spec.subcategory}` }),
+        url: this.real.searchUrl({ ...spec, query: `${colorWord} ${spec.subcategory}` }),
         image_url: null,
         rating: Math.round((3.6 + (r % 14) / 10) * 10) / 10,
         reviews: 10 + r * 7,
-        prime: r % 3 !== 0,
+        prime: this.real.name === "amazon" ? r % 3 !== 0 : undefined,
       };
     });
   }
 }
 
+/**
+ * Active marketplace. Default: Daraz (free – no API key). SHOPPING_PROVIDER=amazon
+ * uses Amazon via SerpAPI (paid); without SERPAPI_API_KEY Amazon falls back to samples.
+ */
 export function getShoppingProvider(): ShoppingProvider {
-  const key = process.env.SERPAPI_API_KEY;
-  if (!key) return new MockShoppingProvider();
-  return process.env.SHOPPING_PROVIDER === "google_shopping"
-    ? new GoogleShoppingProvider(key, process.env.SHOPPING_COUNTRY || "us")
-    : new AmazonShoppingProvider(key);
+  const which = process.env.SHOPPING_PROVIDER || "daraz";
+  if (which === "amazon") {
+    const key = process.env.SERPAPI_API_KEY;
+    const amazon = new AmazonShoppingProvider(key ?? "");
+    return key ? amazon : new MockShoppingProvider(amazon);
+  }
+  if (which === "google_shopping" && process.env.SERPAPI_API_KEY) return new GoogleShoppingProvider(process.env.SERPAPI_API_KEY, process.env.SHOPPING_COUNTRY || "us");
+  return new DarazShoppingProvider();
 }

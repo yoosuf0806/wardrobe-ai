@@ -1,5 +1,5 @@
 // Sample wardrobe used by DEMO mode and the test-suite.
-import { DEFAULT_FIT_PREFERENCES, DEFAULT_SIZES, type GarmentAttributes, type OutfitLog, type Profile, type WardrobeItem } from "../types";
+import { DEFAULT_FIT_PREFERENCES, DEFAULT_SIZES, EMPTY_STYLE_PROFILE, type GarmentAttributes, type OutfitLog, type Profile, type WardrobeItem } from "../types";
 
 type SeedItem = Omit<GarmentAttributes, "secondary_colors" | "waterproof"> & Partial<Pick<GarmentAttributes, "secondary_colors" | "waterproof">>;
 
@@ -54,9 +54,10 @@ export function seedProfile(userId = DEMO_USER_ID): Profile {
     body_shape_source: "detected",
     body_metrics: { method: "manual_circumference", unit: "cm", bust: 104, waist: 82, hip: 92, bust_to_hip: 1.13, waist_to_hip: 0.891, confidence: 0.86, measured_at: "2026-11-01T00:00:00.000Z" },
     fit_preferences: { ...DEFAULT_FIT_PREFERENCES },
-    budget: { max_per_item: 80, currency: "USD" },
+    budget: { max_per_item: 15000, currency: "LKR" },
     department: "unisex",
     sizes: { ...DEFAULT_SIZES, top: "M", bottom_waist: 32, bottom_inseam: 30, shoe: "10" },
+    style_profile: { ...EMPTY_STYLE_PROFILE },
   };
 }
 

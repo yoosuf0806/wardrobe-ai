@@ -5,9 +5,13 @@ import { analyzeMatchGaps, type StyleGap } from "../engine/gaps";
 import { resolveOccasion } from "../engine/occasions";
 import { REJECT_COOLDOWN_DAYS, describe, itemIds, outfitKey, recommendOutfits, type OutfitCandidate } from "../engine/recommend";
 import { lookTitle } from "../engine/titles";
+import { learnPreferences, type LearnedPreference } from "../engine/learning";
+
+/** How far back outfit history is used to learn preferences. */
+export const HISTORY_DAYS = 180;
 import type { Repository } from "../data/repository";
-import { amazonSearchUrl, getShoppingProvider } from "../shopping/providers";
-import { rankProducts } from "../shopping/rank";
+import { getShoppingProvider } from "../shopping/providers";
+import { pickForGap } from "./shop-service";
 import type { RankedProduct } from "../shopping/types";
 import { getWeather, manualWeather } from "../weather";
 import type { WardrobeItem, Weather } from "../types";
@@ -71,7 +75,9 @@ function toView(c: OutfitCandidate, title: string, note: string): OutfitView {
 function engineNote(c: OutfitCandidate): string {
   const pieces = [c.top ?? c.onePiece, c.bottom].filter(Boolean).map((i) => describe(i!));
   const lead = pieces.length === 2 ? `${cap(pieces[0])} over ${pieces[1]}.` : pieces.length ? `${cap(pieces[0])} as the hero piece.` : "";
-  return [lead, ...c.reasons.slice(1, 4)].filter(Boolean).join(" ");
+  const learned = c.reasons.find((r) => r.startsWith("You keep coming back"));
+  const rest = c.reasons.slice(1).filter((r) => r !== learned);
+  return [lead, learned, ...rest].filter(Boolean).slice(0, 4).join(" ");
 }
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -80,7 +86,10 @@ function engineTitle(c: OutfitCandidate): string {
 }
 
 export async function recommend(repo: Repository, req: RecommendRequest): Promise<RecommendResponse> {
-  const [profile, items, recentRejects] = await Promise.all([repo.getProfile(), repo.listItems(), repo.listRejectedOutfits(REJECT_COOLDOWN_DAYS)]);
+  const [profile, items, swipes, logs] = await Promise.all([repo.getProfile(), repo.listItems(), repo.listSwipes(HISTORY_DAYS), repo.listLogs(HISTORY_DAYS)]);
+  const learned = learnPreferences({ logs, swipes, items, style: profile.style_profile });
+  const cooldownSince = Date.now() - REJECT_COOLDOWN_DAYS * 86_400_000;
+  const recentRejects = swipes.filter((s) => s.decision === "reject" && new Date(s.at).getTime() >= cooldownSince).map((s) => s.item_ids);
   const occasion = resolveOccasion(req.occasion, req.formality);
   // Outfits rejected in the last 2 days aren't suggested again until the cooldown passes
   const byId = new Map(items.map((i) => [i.id, i]));
@@ -105,6 +114,7 @@ export async function recommend(repo: Repository, req: RecommendRequest): Promis
     excludeItemIds: req.exclude_item_ids,
     avoidItemIds: req.avoid_item_ids,
     excludeOutfitIds: [...(req.exclude_outfit_ids ?? []), ...cooled],
+    learned,
   });
   const gaps = analyzeMatchGaps(items, profile, occasion, result);
   const completePool = result.pool.filter((c) => c.complete);
@@ -115,7 +125,7 @@ export async function recommend(repo: Repository, req: RecommendRequest): Promis
 
   if (claudeEnabled() && completePool.length > 0) {
     try {
-      const styled = await styleWithClaude({ candidates: completePool, profile, occasion, weather, weatherProfile: result.weatherProfile });
+      const styled = await styleWithClaude({ candidates: completePool, profile, occasion, weather, weatherProfile: result.weatherProfile, learned });
       if (styled) {
         outfits = styled.outfits.map((o) => toView(o.candidate, o.title, o.note));
         stylist = "claude";
@@ -169,10 +179,10 @@ export async function recommend(repo: Repository, req: RecommendRequest): Promis
   };
 }
 
-export async function shopForGap(repo: Repository, gap: StyleGap): Promise<{ products: RankedProduct[]; provider: string; search_url: string }> {
+export async function shopForGap(repo: Repository, gap: StyleGap): Promise<{ products: RankedProduct[]; provider: string; search_url: string; sample: boolean }> {
   const provider = getShoppingProvider();
-  const listings = await provider.search(gap.spec, 12);
-  const products = rankProducts(listings, gap.spec, gap.urgency, provider.name, 3);
-  await repo.saveGap(gap, products).catch((err) => console.error("failed to persist gap", err));
-  return { products, provider: provider.name, search_url: amazonSearchUrl(gap.spec) };
+  const { pick, sample, ranked } = await pickForGap(gap, provider);
+  const products = ranked.slice(0, 3);
+  await repo.saveGap(pick.gap, products).catch((err) => console.error("failed to persist gap", err));
+  return { products, provider: provider.store, search_url: pick.search_url, sample };
 }

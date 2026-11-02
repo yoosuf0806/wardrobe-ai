@@ -59,6 +59,10 @@ export class DemoRepository implements Repository {
     const s = state();
     s.items = s.items.map((i) => (i.id === id ? { ...i, ...attrs } : i));
   }
+  async updateItemImage(id: string, image: NewImage) {
+    const s = state();
+    s.items = s.items.map((i) => (i.id === id ? { ...i, image_url: `data:${image.contentType};base64,${image.data.toString("base64")}` } : i));
+  }
   async archiveItem(id: string) {
     const s = state();
     s.items = s.items.filter((i) => i.id !== id);
@@ -87,11 +91,9 @@ export class DemoRepository implements Repository {
     const at = inLaundry ? new Date().toISOString() : null;
     s.items = s.items.map((i) => (itemIds.includes(i.id) ? { ...i, in_laundry_since: at } : i));
   }
-  async listRejectedOutfits(days: number) {
+  async listSwipes(days: number) {
     const since = Date.now() - days * 86_400_000;
-    return state()
-      .swipes.filter((s) => s.decision === "reject" && new Date(s.at).getTime() >= since)
-      .map((s) => s.item_ids);
+    return structuredClone(state().swipes.filter((s) => new Date(s.at).getTime() >= since));
   }
   async recordSwipe(swipe: { occasion: string; item_ids: string[]; decision: "accept" | "reject"; round: number }) {
     state().swipes.unshift({ ...swipe, at: new Date().toISOString() });

@@ -30,6 +30,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ o
       shapeLabel={profile.body_shape ? BODY_SHAPE_LABELS[profile.body_shape] : null}
       savedLooks={saved}
       demo={repo.mode === "demo"}
+      styleDone={!!profile.style_profile.completed_at}
     />
   );
 }

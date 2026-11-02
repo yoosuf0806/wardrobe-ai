@@ -19,7 +19,8 @@ import { evaluateHarmony, type HarmonyResult } from "./color";
 import { activeItemRules, activeOutfitRules, itemRuleHits, userReject, type RuleHit } from "./body-rules";
 import type { OccasionProfile } from "./occasions";
 import { profileWeather, weatherItemScore, weatherReject, type WeatherProfile } from "./weather-rules";
-import type { Category, Profile, WardrobeItem, Weather } from "../types";
+import { learnedScore, type LearnedPreference } from "./learning";
+import type { Archetype, Category, Profile, StyleProfile, WardrobeItem, Weather } from "../types";
 
 export const LAUNDRY_DAYS = 2; // items return to the closet automatically after this many days
 
@@ -37,6 +38,8 @@ export interface RecommendInput {
   avoidItemIds?: string[];
   /** Outfit IDs already shown in this session – never repeated. */
   excludeOutfitIds?: string[];
+  /** Preferences learned from outfit history (see learning.ts). */
+  learned?: LearnedPreference[];
 }
 
 export interface OutfitCandidate {
@@ -52,6 +55,7 @@ export interface OutfitCandidate {
   breakdown: { formality: number; color: number; body: number; weather: number; freshness: number };
   harmony: HarmonyResult;
   ruleHits: RuleHit[];
+  learnedHits: LearnedPreference[];
   reasons: string[];
   complete: boolean;
 }
@@ -179,7 +183,18 @@ export function recommendOutfits(input: RecommendInput): RecommendResult {
   for (const t of tops) for (const b of bottoms) cores.push({ top: t, bottom: b, onePiece: null });
   for (const o of onePieces) cores.push({ top: null, bottom: null, onePiece: o });
 
-  const ctx = { wp, occasion, itemRules, outfitRules, now, accessories: eligible.accessory, avoid, preferLongSleeves: prefs.prefer_long_sleeves };
+  const ctx = {
+    wp,
+    occasion,
+    itemRules,
+    outfitRules,
+    now,
+    accessories: eligible.accessory,
+    avoid,
+    preferLongSleeves: prefs.prefer_long_sleeves,
+    learned: input.learned ?? [],
+    style: profile.style_profile,
+  };
   const all: OutfitCandidate[] = [];
   for (const core of cores)
     for (const footwear of shoes)
@@ -210,7 +225,28 @@ type Ctx = {
   accessories: WardrobeItem[];
   avoid: Set<string>;
   preferLongSleeves: boolean;
+  learned: LearnedPreference[];
+  style: StyleProfile | undefined;
 };
+
+/** Which colour stories each style archetype leans towards (from the style quiz). */
+const ARCHETYPE_SCHEMES: Record<Archetype, string[]> = {
+  classic: ["neutral", "neutral_plus_accent"],
+  minimal: ["neutral", "monochromatic"],
+  smart_casual: ["neutral_plus_accent", "neutral"],
+  streetwear: ["complementary", "neutral_plus_accent"],
+  sporty: ["neutral_plus_accent", "complementary"],
+  bohemian: ["analogous", "neutral_plus_accent"],
+  romantic: ["analogous", "monochromatic"],
+  edgy: ["neutral", "complementary"],
+};
+
+function styleBonus(style: StyleProfile | undefined, scheme: string): number {
+  if (!style?.completed_at) return 0;
+  let b = 0;
+  for (const [a, w] of Object.entries(style.archetypes) as [Archetype, number][]) if (ARCHETYPE_SCHEMES[a]?.includes(scheme)) b += 0.04 * w;
+  return Math.min(0.05, b);
+}
 
 /** Best accessory that keeps (or improves) the outfit's colour story, or null. */
 function pickAccessory(pieces: WardrobeItem[], ctx: Ctx): WardrobeItem | null {
@@ -280,6 +316,8 @@ function scoreEnsemble(parts: Pick<OutfitCandidate, "top" | "bottom" | "onePiece
 
   let score = W.formality * fScore + W.color * harmony.score + W.body * body + W.weather * weather + W.freshness * fresh;
   if (accessory) score += 0.02;
+  const taste = learnedScore(clothes, ctx.learned);
+  score += taste.delta + styleBonus(ctx.style, harmony.scheme);
   score -= clothes.filter((p) => ctx.avoid.has(p.id)).length * AVOID_PENALTY;
   if (!complete) score *= 0.6;
 
@@ -291,6 +329,8 @@ function scoreEnsemble(parts: Pick<OutfitCandidate, "top" | "bottom" | "onePiece
   if (ctx.wp.wantsRainProtection && parts.outerwear?.waterproof) reasons.push("Waterproof layer for the expected rain.");
   if (ctx.wp.muggy) reasons.push("Breathable fabrics prioritised for the humidity.");
   if (accessory) reasons.push(`Finish with the ${describe(accessory)}.`);
+  const fav = taste.hits.find((h) => h.liked);
+  if (fav) reasons.push(`You keep coming back to ${fav.label.charAt(0).toLowerCase() + fav.label.slice(1)}.`);
 
   return {
     id: outfitKey(parts),
@@ -301,6 +341,7 @@ function scoreEnsemble(parts: Pick<OutfitCandidate, "top" | "bottom" | "onePiece
     breakdown: { formality: fScore, color: harmony.score, body, weather, freshness: fresh },
     harmony,
     ruleHits,
+    learnedHits: taste.hits,
     reasons,
     complete,
   };

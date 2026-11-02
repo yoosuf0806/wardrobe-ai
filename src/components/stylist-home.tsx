@@ -29,7 +29,7 @@ function weatherPhrase(w: Weather) {
   return parts.join(", ");
 }
 
-export function StylistHome({ initialOccasion, shapeLabel, savedLooks: initialSaved, demo }: { initialOccasion: string; shapeLabel: string | null; savedLooks: SavedLook[]; demo: boolean }) {
+export function StylistHome({ initialOccasion, shapeLabel, savedLooks: initialSaved, demo, styleDone }: { initialOccasion: string; shapeLabel: string | null; savedLooks: SavedLook[]; demo: boolean; styleDone: boolean }) {
   const [occasion, setOccasion] = useState(initialOccasion);
   const [otherOpen, setOtherOpen] = useState(false);
   const [otherText, setOtherText] = useState("");
@@ -230,6 +230,16 @@ export function StylistHome({ initialOccasion, shapeLabel, savedLooks: initialSa
           </div>
         </details>
       </header>
+
+      {!styleDone && (
+        <Link href="/style" className="flex items-center justify-between gap-3 rounded-[22px] bg-accent-soft px-5 py-4 transition hover:brightness-[0.98]">
+          <span>
+            <span className="eyebrow block text-accent">1-minute style quiz</span>
+            <span className="text-[15px]">Pick looks you love so we can tailor outfits and shopping to you.</span>
+          </span>
+          <span aria-hidden className="text-xl">→</span>
+        </Link>
+      )}
 
       <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6" role="tablist" aria-label="Occasion">
         {QUICK_OCCASIONS.map((o) => (

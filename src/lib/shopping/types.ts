@@ -19,8 +19,15 @@ export interface RankedProduct extends ProductListing {
   provider: string;
 }
 
-/** A source of product listings. Implementations must be legal to use (APIs/feeds, not scraping). */
+/** A source of product listings. */
 export interface ShoppingProvider {
   name: string;
+  /** Marketplace shown to the user ("Daraz", "Amazon") */
+  store: string;
+  /** Currency prices come back in */
+  currency: string;
   search(spec: GapSpec, limit: number): Promise<ProductListing[]>;
+  /** A search-results link for the spec (affiliate-tagged when configured) */
+  searchUrl(spec: GapSpec): string;
+  disclosure: string;
 }

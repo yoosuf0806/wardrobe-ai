@@ -5,7 +5,8 @@ import { FALLBACK, STYLIST_EFFORT, STYLIST_MODEL, getClaude } from "./claude";
 import type { OutfitCandidate } from "../engine/recommend";
 import type { OccasionProfile } from "../engine/occasions";
 import type { WeatherProfile } from "../engine/weather-rules";
-import { BODY_SHAPE_LABELS, CATEGORIES, type Profile, type WardrobeItem, type Weather } from "../types";
+import type { LearnedPreference } from "../engine/learning";
+import { ARCHETYPE_LABELS, BODY_SHAPE_LABELS, CATEGORIES, type Archetype, type Profile, type WardrobeItem, type Weather } from "../types";
 
 // The LLM never sees the full wardrobe. It receives the engine's pre-filtered,
 // pre-scored candidate ensembles and picks/explains – so it cannot select an
@@ -65,7 +66,7 @@ Rules:
 2. Weather: the outfit must be comfortable in the stated conditions (no heavy fabrics above 25°C; a warm layer when it is cold; rain protection when rain is likely).
 3. Colour harmony: max 3 distinct colours; favour monochromatic, analogous, complementary or neutral-plus-accent schemes.
 4. Fit: respect the user's fit preferences and overrides – they ALWAYS take priority over body-type guidance. Never recommend something the user said they avoid, and do not suggest body-type "flattering" advice that contradicts their stated comfort preferences.
-5. Only choose from the candidate IDs provided. Prefer variety across your picks.
+5. Only choose from the candidate IDs provided. Prefer variety across your picks, but lean towards the user's learned likes and style identity – mention it naturally when a look matches what they've chosen before.
 6. If no candidate is truly appropriate for the occasion, or a key piece is missing, set missing_gap_item.needed = true and describe the single most useful piece to buy.
 
 Write stylist notes in second person, concise and specific to the actual garments – mention colours and pieces by name.`;
@@ -76,8 +77,15 @@ export async function styleWithClaude(args: {
   occasion: OccasionProfile;
   weather: Weather;
   weatherProfile: WeatherProfile;
+  learned?: LearnedPreference[];
 }): Promise<StylistResult | null> {
-  const { candidates, profile, occasion, weather, weatherProfile } = args;
+  const { candidates, profile, occasion, weather, weatherProfile, learned = [] } = args;
+  const styles = (Object.entries(profile.style_profile?.archetypes ?? {}) as [Archetype, number][])
+    .filter(([, w]) => w >= 0.4)
+    .sort((a, b) => b[1] - a[1])
+    .map(([a]) => ARCHETYPE_LABELS[a]);
+  const likes = learned.filter((l) => l.liked).slice(0, 6).map((l) => `${l.label} (chosen ${l.count}×)`);
+  const dislikes = learned.filter((l) => !l.liked).slice(0, 4).map((l) => l.label);
   if (candidates.length === 0) return null;
   const ids = candidates.map((_, i) => `C${i + 1}`);
   const byId = new Map(ids.map((id, i) => [id, candidates[i]]));
@@ -89,7 +97,7 @@ export async function styleWithClaude(args: {
   const userContext = `USER CONTEXT
 - Body type: ${profile.body_shape ? BODY_SHAPE_LABELS[profile.body_shape] : "unknown"}
 - Fit preferences & overrides: ${overrides.length ? overrides.join("; ") : "none set"}${prefs.notes ? `\n- Comfort notes from the user: "${prefs.notes}"` : ""}
-- Requested occasion: ${occasion.label} (target formality ${occasion.formality[0]}–${occasion.formality[1]} of 10)
+${styles.length ? `- Style identity (from their style quiz): ${styles.join(", ")}\n` : ""}${likes.length ? `- Learned from outfits they've worn: likes ${likes.join("; ")}\n` : ""}${dislikes.length ? `- Tends to reject: ${dislikes.join("; ")}\n` : ""}- Requested occasion: ${occasion.label} (target formality ${occasion.formality[0]}–${occasion.formality[1]} of 10)
 - Live weather: ${Math.round(weather.temp_c)}°C (feels like ${Math.round(weather.feels_like_c)}°C), ${weather.condition}, humidity ${weather.humidity}%, rain chance ${Math.round(weather.rain_probability * 100)}% – ${weatherProfile.band}, ${weatherProfile.season}; outer layer ${weatherProfile.outerwear}
 
 CANDIDATE ENSEMBLES

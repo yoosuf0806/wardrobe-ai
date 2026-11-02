@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NewImage, Repository } from "./repository";
 import type { StyleGap } from "../engine/gaps";
 import type { RankedProduct } from "../shopping/types";
-import { DEFAULT_FIT_PREFERENCES, DEFAULT_SIZES, type GarmentAttributes, type OutfitLog, type Profile, type WardrobeItem, type Weather } from "../types";
+import { DEFAULT_FIT_PREFERENCES, DEFAULT_SIZES, EMPTY_STYLE_PROFILE, type GarmentAttributes, type OutfitLog, type Profile, type WardrobeItem, type Weather } from "../types";
 
 const BUCKET = "wardrobe";
 const ITEM_COLUMNS =
@@ -81,6 +81,21 @@ export class SupabaseRepository implements Repository {
     if (error) throw error;
   }
 
+  async updateItemImage(id: string, image: NewImage, embedding: number[] | null): Promise<void> {
+    const { data: old, error: e1 } = await this.db.from("wardrobe_items").select("image_path").eq("id", id).single();
+    if (e1) throw e1;
+    const ext = image.contentType === "image/png" ? "png" : image.contentType === "image/webp" ? "webp" : "jpg";
+    const path = `${this.userId}/${randomUUID()}.${ext}`;
+    const { error: e2 } = await this.db.storage.from(BUCKET).upload(path, image.data, { contentType: image.contentType });
+    if (e2) throw e2;
+    const { error: e3 } = await this.db
+      .from("wardrobe_items")
+      .update({ image_path: path, ...(embedding ? { item_embedding: JSON.stringify(embedding) } : {}), updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (e3) throw e3;
+    if (old?.image_path) await this.db.storage.from(BUCKET).remove([old.image_path]);
+  }
+
   async archiveItem(id: string): Promise<void> {
     const { error } = await this.db.from("wardrobe_items").update({ archived: true }).eq("id", id);
     if (error) throw error;
@@ -113,11 +128,11 @@ export class SupabaseRepository implements Repository {
     if (error) throw error;
   }
 
-  async listRejectedOutfits(days: number): Promise<string[][]> {
+  async listSwipes(days: number): Promise<{ item_ids: string[]; decision: "accept" | "reject"; at: string }[]> {
     const since = new Date(Date.now() - days * 86_400_000).toISOString();
-    const { data, error } = await this.db.from("outfit_swipes").select("item_ids").eq("decision", "reject").gte("created_at", since).limit(200);
+    const { data, error } = await this.db.from("outfit_swipes").select("item_ids,decision,created_at").gte("created_at", since).order("created_at", { ascending: false }).limit(500);
     if (error) throw error;
-    return (data ?? []).map((r) => r.item_ids as string[]);
+    return (data ?? []).map((r) => ({ item_ids: r.item_ids as string[], decision: r.decision as "accept" | "reject", at: r.created_at as string }));
   }
 
   async recordSwipe(swipe: { occasion: string; item_ids: string[]; decision: "accept" | "reject"; round: number }): Promise<void> {
@@ -163,5 +178,6 @@ function toProfile(row: Record<string, unknown>): Profile {
     budget: (row.budget as Profile["budget"]) ?? { max_per_item: 150, currency: "USD" },
     department: (row.department as Profile["department"]) ?? "unisex",
     sizes: { ...DEFAULT_SIZES, ...((row.sizes as object) ?? {}) },
+    style_profile: { ...EMPTY_STYLE_PROFILE, ...((row.style_profile as object) ?? {}) },
   };
 }

@@ -98,23 +98,47 @@ round N+1: POST /api/recommend { avoid_item_ids: all rejected pieces,
 - **Every swipe is stored** in `outfit_swipes`. It's not used yet; it's the training data for learning personal taste (see roadmap).
 - **Accessories** are picked per ensemble *after* the clothes, so they never multiply the search space. One is added only if it doesn't lower colour harmony, and accessories don't count toward outfit diversity.
 
-## 5. Mobile app (next phase)
+## 5. Personalisation (v4)
+
+**Style quiz** (`src/lib/style/looks.ts`, `/style`). The user sees 12 looks for their gender, tagged with 8 archetypes (Classic, Minimal, Smart Casual, Streetwear, Sporty, Bohemian, Romantic, Edgy) and 5 palettes. Affinity = liked ÷ shown per archetype and palette, stored in `profiles.style_profile`. It's used for:
+- a small colour-scheme bonus in outfit scoring;
+- the Claude stylist prompt ("Style identity: Classic, Minimal");
+- shopping query keywords. Formalwear at formality ≥ 9 stays conventional.
+
+**Learning from history** (`src/lib/engine/learning.ts`). Each worn outfit (log rated ≥ 3 or unrated) is broken into features: `color:<family>`, `type:<category>:<garment>`, `pattern:*`, `fit:*`, `scheme:*` and `pair:<top>+<bottom>`.
+- A feature becomes a preference once it appears in at least **2** outfits and is chosen more often than rejected.
+- It becomes a soft dislike after 2 or more rejections (swipe left, or a rating ≤ 2).
+- Nudges are bounded: +0.2 / −0.12 per outfit. Explicit fit overrides always win.
+- Learned liked colours steer `bridgeColor()` when choosing what to buy.
+- The user can dismiss any item (`style_profile.dismissed_learned`).
+- History window: 180 days (`HISTORY_DAYS`). Outfit logs and swipes are kept because they are the learning signal.
+
+**Wardrobe upkeep**: edit attributes (`PATCH /api/wardrobe/:id`), replace the photo (`POST /api/wardrobe/:id/photo`, which also re-embeds and deletes the old file), and batch add (several photos → analyse → review → save, one after another).
+
+**Shopping store**: `ShoppingProvider` now carries `store`, `currency`, `searchUrl()` and `disclosure`.
+- **Daraz** (default) reads the JSON that daraz.lk's own catalogue page loads. It's free and needs no key, but the endpoint is undocumented, so it's for testing only. Production should use the Daraz Affiliate Programme feed and links (`DARAZ_AFFILIATE_URL_TEMPLATE`).
+- If a live search fails, the Shop shows sample listings plus a real "Search Daraz" link, and says so.
+- Budgets convert via approximate FX rates (`FX_RATES` override).
+
+## 6. Mobile app (next phase)
 
 - An Expo (React Native) app reusing `src/lib/engine`, `src/lib/types.ts` and the same API routes.
 - **Needed first:** the API currently authenticates via Supabase session cookies (web). The native app will send the Supabase access token as `Authorization: Bearer …`. A small change in `getRepository()`: build the Supabase client from the bearer token when present.
 - The swipe card would use `react-native-gesture-handler` + `reanimated`, and the camera would use `expo-camera`. No body-scan port is needed, since measurements are typed in.
 
-## 6. Open questions for you
+## 7. Open questions for you
 
 Answered in v2: sizes ✔, Amazon ✔, accessories ✔, occasion-first flow (no calendar) ✔, swipe + laundry ✔, web first then mobile ✔.
 
 Answered in v3: affiliate revenue via Amazon Associates ✔, amazon.com for testing ✔, laundry returns after 2 days ✔, deal until combinations run out ✔, no body photos (measurements instead) ✔, UI per supplied designs ✔.
 
-Still open:
-1. **Data retention**: how long to keep outfit logs and swipes; account deletion already cascades.
-2. **Production Amazon data**: SerpAPI (paid per search) now, or apply for Amazon's own product API once the Associates account has qualifying sales.
+Answered in v4: history drives learning (preference after 2 similar choices) ✔, Daraz for free testing ✔, gendered style quiz ✔, editing preferences and wardrobe ✔.
 
-## 7. Roadmap
+Still open:
+1. **Style quiz imagery**: the looks are illustrations. Real photos need a licensed or commissioned set, or user-generated looks.
+2. **Daraz affiliate**: the deep-link format from your Daraz affiliate account, for production.
+
+## 8. Roadmap
 
 - Fashion-CLIP embeddings → "you already own something similar" warnings in shopping results (`match_wardrobe_items` RPC is in place).
 - Learn from `outfit_swipes` and `outfit_logs.feedback`: per-user weights for colour/body/freshness, and "never pair these two" memory.

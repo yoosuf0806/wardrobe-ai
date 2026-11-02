@@ -4,6 +4,8 @@
 import { STAPLE_COLORS, countDistinctColors, evaluateHarmony } from "./color";
 import { activeItemRules, userReject } from "./body-rules";
 import { describe as describeItem, isInLaundry } from "./recommend";
+import { colorFamily } from "./learning";
+import { ARCHETYPE_KEYWORD, topArchetypes } from "../style/looks";
 import { OCCASIONS, resolveOccasion, type OccasionProfile } from "./occasions";
 import type { RecommendResult } from "./recommend";
 import type { Category, Department, Fit, OutfitLog, Profile, Sizes, WardrobeItem } from "../types";
@@ -76,13 +78,15 @@ function suggestSubcategory(category: Category, formality: number, dept: Departm
   return row[dept];
 }
 
-/** Pick the staple colour that harmonises with the most items the user already owns for this occasion. */
-export function bridgeColor(items: WardrobeItem[]): { hex: string; name: string } {
+/** Pick the staple colour that harmonises with the most items the user already owns for this occasion,
+ *  preferring colour families the user has repeatedly chosen. */
+export function bridgeColor(items: WardrobeItem[], likedFamilies: string[] = []): { hex: string; name: string } {
   let best = STAPLE_COLORS[0];
   let bestScore = -1;
   for (const c of STAPLE_COLORS) {
     const owned = items.filter((i) => countDistinctColors([i.color_hex, c.hex]) === 1).length;
-    const score = items.reduce((a, i) => a + evaluateHarmony([i.color_hex, c.hex]).score, 0) - owned * 0.5; // don't buy what you have
+    const liked = likedFamilies.includes(colorFamily(c.hex)) ? Math.max(1, items.length * 0.25) : 0;
+    const score = items.reduce((a, i) => a + evaluateHarmony([i.color_hex, c.hex]).score, 0) - owned * 0.5 + liked; // don't buy what you have
     if (score > bestScore) {
       bestScore = score;
       best = c;
@@ -127,7 +131,9 @@ export function sizeFor(category: Category, sizes: Sizes | undefined): string | 
 }
 
 function makeSpec(category: Category, formality: number, profile: Profile, pool: WardrobeItem[], opts: { cold?: boolean; rain?: boolean } = {}): GapSpec {
-  const color = formality >= 9 ? formalColor(category) : bridgeColor(pool);
+  const color = formality >= 9 ? formalColor(category) : bridgeColor(pool, profile.style_profile?.learned_colors ?? []);
+  const style = topArchetypes(profile.style_profile?.archetypes ?? {}, 1)[0];
+  const styleWord = style && ["top", "bottom", "one_piece", "outerwear"].includes(category) && formality < 9 ? ARCHETYPE_KEYWORD[style][profile.department] : "";
   const subcategory = suggestSubcategory(category, formality, profile.department, opts);
   const dept = profile.department === "unisex" ? "" : profile.department === "womens" ? "women's " : "men's ";
   const avoid_fits = fitsToAvoid(profile);
@@ -144,7 +150,7 @@ function makeSpec(category: Category, formality: number, profile: Profile, pool:
     avoid_fits,
     waterproof: opts.rain || undefined,
     size: sizeFor(category, profile.sizes),
-    query: `${dept}${color.name} ${fitWord}${subcategory}${sizeFor(category, profile.sizes) ? ` size ${sizeFor(category, profile.sizes)}` : ""}`.replace(/\s+/g, " ").trim(),
+    query: `${dept}${styleWord ? styleWord + " " : ""}${color.name} ${fitWord}${subcategory}${sizeFor(category, profile.sizes) ? ` size ${sizeFor(category, profile.sizes)}` : ""}`.replace(/\s+/g, " ").trim(),
   };
 }
 

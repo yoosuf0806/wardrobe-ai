@@ -57,6 +57,14 @@ export const ProfilePatchSchema = z
     fit_preferences: FitPreferencesSchema,
     budget: z.object({ max_per_item: z.number().positive().max(100000), currency: z.string().length(3) }),
     department: z.enum(["womens", "mens", "unisex"]),
+    style_profile: z.object({
+      archetypes: z.record(z.string(), z.number().min(0).max(1)),
+      palettes: z.record(z.string(), z.number().min(0).max(1)),
+      liked_looks: z.array(z.string().max(40)).max(100),
+      disliked_looks: z.array(z.string().max(40)).max(100),
+      completed_at: z.string().nullable(),
+      dismissed_learned: z.array(z.string().max(120)).max(200),
+    }),
     sizes: z.object({
       top: z.string().max(10).nullable(),
       bottom_waist: z.number().min(20).max(60).nullable(),

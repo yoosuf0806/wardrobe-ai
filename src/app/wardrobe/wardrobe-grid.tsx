@@ -3,9 +3,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ItemImage, titleCase } from "@/components/garment-art";
+import { GarmentForm, downscale, pickAttributes } from "@/components/garment-form";
 import { IconPlus } from "@/components/icons";
 import { isInLaundry } from "@/lib/engine/recommend";
-import type { Category, WardrobeItem } from "@/lib/types";
+import type { Category, GarmentAttributes, WardrobeItem } from "@/lib/types";
 
 const TABS: { key: string; label: string; cats: Category[] }[] = [
   { key: "all", label: "All", cats: [] },
@@ -25,6 +26,31 @@ export function WardrobeGrid({ items, initialTab }: { items: WardrobeItem[]; ini
   const [onlyLaundry, setOnlyLaundry] = useState(initialTab === "laundry");
   const [open, setOpen] = useState<WardrobeItem | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState<GarmentAttributes | null>(null);
+
+  function openItem(i: WardrobeItem | null) {
+    setOpen(i);
+    setEditing(null);
+  }
+  async function saveEdit() {
+    if (!open || !editing) return;
+    setBusy(true);
+    await fetch(`/api/wardrobe/${open.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editing) });
+    setBusy(false);
+    openItem(null);
+    router.refresh();
+  }
+  async function changePhoto(file: File) {
+    if (!open) return;
+    setBusy(true);
+    const { blob } = await downscale(file);
+    const fd = new FormData();
+    fd.append("image", blob, "garment.jpg");
+    await fetch(`/api/wardrobe/${open.id}/photo`, { method: "POST", body: fd });
+    setBusy(false);
+    openItem(null);
+    router.refresh();
+  }
 
   const laundryCount = items.filter((i) => isInLaundry(i)).length;
   const tabs = TABS.filter((t) => t.key === "all" || items.some((i) => t.cats.includes(i.category)));
@@ -34,7 +60,7 @@ export function WardrobeGrid({ items, initialTab }: { items: WardrobeItem[]; ini
     setBusy(true);
     await fetch("/api/laundry", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ item_ids: ids, in_laundry: inLaundry }) });
     setBusy(false);
-    setOpen(null);
+    openItem(null);
     router.refresh();
   }
   async function remove(id: string) {
@@ -42,7 +68,7 @@ export function WardrobeGrid({ items, initialTab }: { items: WardrobeItem[]; ini
     setBusy(true);
     await fetch(`/api/wardrobe/${id}`, { method: "DELETE" });
     setBusy(false);
-    setOpen(null);
+    openItem(null);
     router.refresh();
   }
 
@@ -100,7 +126,7 @@ export function WardrobeGrid({ items, initialTab }: { items: WardrobeItem[]; ini
             </h2>
             <div className="grid grid-cols-2 gap-3">
               {list.map((i) => (
-                <PieceCard key={i.id} item={i} onOpen={() => setOpen(i)} />
+                <PieceCard key={i.id} item={i} onOpen={() => openItem(i)} />
               ))}
             </div>
           </section>
@@ -112,8 +138,8 @@ export function WardrobeGrid({ items, initialTab }: { items: WardrobeItem[]; ini
       </Link>
 
       {open && (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 sm:items-center" role="dialog" aria-modal="true" onClick={() => setOpen(null)}>
-          <div className="w-full max-w-md rounded-t-[32px] bg-surface p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:rounded-[32px]" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 sm:items-center" role="dialog" aria-modal="true" onClick={() => openItem(null)}>
+          <div className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-[32px] bg-surface p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:rounded-[32px]" onClick={(e) => e.stopPropagation()}>
             <div className="flex gap-4">
               <ItemImage item={open} className="aspect-[4/5] w-28 shrink-0 rounded-2xl" />
               <div className="min-w-0 space-y-1.5">
@@ -125,14 +151,37 @@ export function WardrobeGrid({ items, initialTab }: { items: WardrobeItem[]; ini
                 <p className="text-sm text-muted">Worn {open.wear_count}×{open.last_worn_at ? ` · last ${new Date(open.last_worn_at).toLocaleDateString()}` : ""}</p>
               </div>
             </div>
+            {editing ? (
+              <div className="mt-6 space-y-4">
+                <GarmentForm value={editing} onChange={setEditing} />
+                <div className="flex gap-2">
+                  <button className="btn-primary flex-1 py-3" disabled={busy || !editing.subcategory} onClick={saveEdit}>
+                    {busy ? "Saving…" : "Save changes"}
+                  </button>
+                  <button className="btn-ghost py-3" onClick={() => setEditing(null)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div className="mt-6 flex flex-col gap-2">
               <button className="btn-primary w-full py-3" disabled={busy} onClick={() => setLaundry([open.id], !isInLaundry(open))}>
                 {isInLaundry(open) ? "Back in the closet" : "Put in the laundry"}
               </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button className="btn-ghost py-3" disabled={busy} onClick={() => setEditing(pickAttributes(open))}>
+                  Edit details
+                </button>
+                <label className={`btn-ghost cursor-pointer py-3 ${busy ? "pointer-events-none opacity-50" : ""}`}>
+                  {busy ? "Uploading…" : "Change photo"}
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && changePhoto(e.target.files[0])} />
+                </label>
+              </div>
               <button className="btn-ghost w-full py-3 text-accent" disabled={busy} onClick={() => remove(open.id)}>
                 Remove from wardrobe
               </button>
             </div>
+            )}
           </div>
         </div>
       )}

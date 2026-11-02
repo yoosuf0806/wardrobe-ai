@@ -137,6 +137,37 @@ export interface BodyMetrics {
   measured_at: string;
 }
 
+export const ARCHETYPES = ["classic", "minimal", "smart_casual", "streetwear", "sporty", "bohemian", "romantic", "edgy"] as const;
+export type Archetype = (typeof ARCHETYPES)[number];
+
+export const ARCHETYPE_LABELS: Record<Archetype, string> = {
+  classic: "Classic",
+  minimal: "Minimal",
+  smart_casual: "Smart Casual",
+  streetwear: "Streetwear",
+  sporty: "Sporty",
+  bohemian: "Bohemian",
+  romantic: "Romantic",
+  edgy: "Edgy",
+};
+
+export type Palette = "neutral" | "earthy" | "dark" | "bright" | "pastel";
+
+/** Result of the style quiz + things the user chose to forget. */
+export interface StyleProfile {
+  archetypes: Partial<Record<Archetype, number>>; // 0..1 affinity
+  palettes: Partial<Record<Palette, number>>; // 0..1 affinity
+  liked_looks: string[];
+  disliked_looks: string[];
+  completed_at: string | null;
+  /** learned-preference keys the user removed ("color:navy", ...) */
+  dismissed_learned: string[];
+  /** runtime only (never stored): liked colour families learned from history */
+  learned_colors?: string[];
+}
+
+export const EMPTY_STYLE_PROFILE: StyleProfile = { archetypes: {}, palettes: {}, liked_looks: [], disliked_looks: [], completed_at: null, dismissed_learned: [] };
+
 export interface Profile {
   id: string;
   display_name: string | null;
@@ -147,6 +178,7 @@ export interface Profile {
   budget: Budget;
   department: Department;
   sizes: Sizes;
+  style_profile: StyleProfile;
 }
 
 export interface Weather {

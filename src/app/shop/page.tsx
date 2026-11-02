@@ -32,9 +32,12 @@ export default async function ShopPage() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat label="Budget per item" value={money(board.budget.max_per_item, board.budget.currency)}>
-          <Link href="/profile#budget" className="text-xs text-accent">
-            Adjust
-          </Link>
+          <p className="text-xs text-muted">
+            {board.store_budget.currency !== board.budget.currency && <>≈ {money(board.store_budget.max_per_item, board.store_budget.currency)} on {board.store} · </>}
+            <Link href="/profile#budget" className="text-accent">
+              Adjust
+            </Link>
+          </p>
         </Stat>
         <Stat label="Items in laundry" value={String(board.in_laundry)}>
           {board.in_laundry > 0 && (
@@ -55,7 +58,7 @@ export default async function ShopPage() {
 
       <div className="space-y-4">
         {board.within_budget.map((p, i) => (
-          <PickCard key={i} pick={p} />
+          <PickCard key={i} pick={p} store={board.store} />
         ))}
       </div>
 
@@ -63,14 +66,14 @@ export default async function ShopPage() {
         <section className="space-y-4 pt-2">
           <h2 className="display text-[32px]">Above your budget</h2>
           {board.above_budget.map((p, i) => (
-            <PickCard key={i} pick={p} muted />
+            <PickCard key={i} pick={p} store={board.store} muted />
           ))}
         </section>
       )}
 
       <p className="text-[11px] leading-relaxed text-faint">
-        As an Amazon Associate SmartStylist earns from qualifying purchases. Prices and availability can change.
-        {board.provider === "mock" && " Demo listings — add SERPAPI_API_KEY for live Amazon results."}
+        {board.disclosure}
+        {board.sample && ` Showing sample listings – live ${board.store} results weren't reachable. Each “Search ${board.store}” link opens real results.`}
       </p>
     </div>
   );
@@ -86,9 +89,10 @@ function Stat({ label, value, children }: { label: string; value: string; childr
   );
 }
 
-function PickCard({ pick, muted = false }: { pick: ShopPick; muted?: boolean }) {
+function PickCard({ pick, store, muted = false }: { pick: ShopPick; store: string; muted?: boolean }) {
   const { gap, product } = pick;
-  const href = product?.url ?? pick.search_url;
+  const sample = product?.merchant?.endsWith("(sample)");
+  const href = sample || !product ? pick.search_url : product.url;
   return (
     <article className="card p-3.5">
       <div className="relative aspect-[4/3] overflow-hidden rounded-[20px]">
@@ -115,7 +119,7 @@ function PickCard({ pick, muted = false }: { pick: ShopPick; muted?: boolean }) 
         <div className="flex items-center justify-between pt-3">
           <span className="display text-[30px]">{money(product?.price ?? null, gap.spec.currency)}</span>
           <a href={href} target="_blank" rel="noopener noreferrer sponsored" className={`btn py-2 text-[13px] text-white ${muted ? "bg-muted hover:bg-ink" : "bg-ink hover:bg-black"}`}>
-            {product ? "Buy on Amazon" : "Search Amazon"} <IconExternal className="h-3.5 w-3.5" />
+            {product && !sample ? `Buy on ${store}` : `Search ${store}`} <IconExternal className="h-3.5 w-3.5" />
           </a>
         </div>
       </div>
