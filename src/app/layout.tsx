@@ -1,6 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import { DM_Sans, Instrument_Serif } from "next/font/google";
 import "./globals.css";
-import { Nav } from "@/components/nav";
+import { Header, Nav } from "@/components/nav";
+
+const sans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans", display: "swap" });
+const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: ["normal", "italic"], variable: "--font-instrument", display: "swap" });
 
 export const metadata: Metadata = {
   title: "SmartStylist",
@@ -9,14 +13,15 @@ export const metadata: Metadata = {
   icons: { icon: "/icon.svg", apple: "/icon.svg" },
 };
 
-export const viewport: Viewport = { themeColor: "#1c1917", width: "device-width", initialScale: 1, viewportFit: "cover" };
+export const viewport: Viewport = { themeColor: "#f8f5f0", width: "device-width", initialScale: 1, viewportFit: "cover" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${sans.variable} ${serif.variable}`}>
       <body className="min-h-dvh font-sans antialiased">
+        <Header />
+        <main className="mx-auto w-full max-w-xl px-4 pb-32 pt-6 sm:px-6">{children}</main>
         <Nav />
-        <main className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4 sm:pb-12">{children}</main>
       </body>
     </html>
   );

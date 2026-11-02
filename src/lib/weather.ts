@@ -8,6 +8,7 @@ export const DEFAULT_WEATHER: Weather = {
   feels_like_c: 21,
   humidity: 55,
   rain_probability: 0.1,
+  wind_kph: null,
   condition: "Clear",
   location_name: null,
   latitude: null,
@@ -17,6 +18,7 @@ export const DEFAULT_WEATHER: Weather = {
 interface OwmCurrent {
   name?: string;
   main: { temp: number; feels_like: number; humidity: number };
+  wind?: { speed?: number };
   weather: { main: string; description: string }[];
 }
 interface OwmForecast {
@@ -43,6 +45,7 @@ export async function getWeather(lat: number | null, lon: number | null): Promis
       feels_like_c: c.main.feels_like,
       humidity: c.main.humidity,
       rain_probability: /rain|drizzle|thunder/i.test(condition) ? Math.max(pop, 0.8) : pop,
+      wind_kph: typeof c.wind?.speed === "number" ? Math.round(c.wind.speed * 3.6) : null,
       condition,
       location_name: c.name ?? null,
       latitude: lat,
@@ -60,6 +63,7 @@ export function manualWeather(tempC: number, rainy: boolean, latitude: number | 
     feels_like_c: tempC,
     humidity: rainy ? 85 : 55,
     rain_probability: rainy ? 0.8 : 0.1,
+    wind_kph: null,
     condition: rainy ? "Rain" : "Clear",
     location_name: null,
     latitude,

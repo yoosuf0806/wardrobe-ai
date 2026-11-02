@@ -40,7 +40,7 @@ export const BODY_SHAPE_LABELS: Record<BodyShape, string> = {
   hourglass: "Hourglass",
   rectangle: "Rectangle",
   inverted_triangle: "Inverted Triangle",
-  pear: "Pear",
+  pear: "Triangle",
   oval: "Oval / Apple",
 };
 
@@ -87,6 +87,7 @@ export interface FitPreferences {
   avoid_colors: string[]; // hex values the user never wants
   avoid_patterns: Pattern[];
   disabled_rules: string[]; // baseline rule ids the user switched off
+  prefer_long_sleeves: boolean; // soft preference (score bonus), not a filter
   notes: string; // free-text comfort notes passed to the stylist LLM
 }
 
@@ -100,6 +101,7 @@ export const DEFAULT_FIT_PREFERENCES: FitPreferences = {
   avoid_colors: [],
   avoid_patterns: [],
   disabled_rules: [],
+  prefer_long_sleeves: false,
   notes: "",
 };
 
@@ -122,15 +124,15 @@ export interface Budget {
   currency: string;
 }
 
+/** Tape measurements the user types in. Body shape is derived from bust/waist/hip. */
 export interface BodyMetrics {
-  method: "mediapipe_frontal" | "manual_circumference";
-  shoulder: number;
+  method: "manual_circumference";
+  unit: "cm" | "in";
+  bust: number; // bust / chest circumference
   waist: number;
   hip: number;
-  shoulder_to_hip: number;
+  bust_to_hip: number;
   waist_to_hip: number;
-  waist_to_shoulder: number;
-  torso_to_leg?: number;
   confidence: number; // 0..1
   measured_at: string;
 }
@@ -152,6 +154,7 @@ export interface Weather {
   feels_like_c: number;
   humidity: number; // %
   rain_probability: number; // 0..1 over the next ~12h
+  wind_kph: number | null;
   condition: string; // "Clear", "Rain" ...
   location_name: string | null;
   latitude: number | null;

@@ -23,14 +23,12 @@ const SEED: SeedItem[] = [
   { category: "accessory", subcategory: "silver watch", color_hex: "#C0C0C0", color_name: "Silver", pattern: "solid", fabric_type: "steel", fabric_weight: "light", sleeve_length: "none", fit: "regular", length: "regular", formality: 7, seasonality: ["spring", "summer", "autumn", "winter"] },
   { category: "accessory", subcategory: "grey wool scarf", color_hex: "#6B7280", color_name: "Grey", pattern: "solid", fabric_type: "wool", fabric_weight: "medium", sleeve_length: "none", fit: "regular", length: "regular", formality: 5, seasonality: ["autumn", "winter"] },
   { category: "outerwear", subcategory: "denim jacket", color_hex: "#5B7DB1", color_name: "Mid Blue", pattern: "solid", fabric_type: "denim", fabric_weight: "medium", sleeve_length: "long_sleeve", fit: "regular", length: "regular", formality: 3, seasonality: ["spring", "autumn"] },
+  { category: "top", subcategory: "performance tank", color_hex: "#2B2B2B", color_name: "Charcoal", pattern: "solid", fabric_type: "polyester", fabric_weight: "light", sleeve_length: "sleeveless", fit: "regular", length: "regular", formality: 1, seasonality: ["spring", "summer", "autumn", "winter"] },
+  { category: "bottom", subcategory: "training shorts", color_hex: "#151515", color_name: "Black", pattern: "solid", fabric_type: "polyester", fabric_weight: "light", sleeve_length: "none", fit: "regular", length: "regular", formality: 1, seasonality: ["spring", "summer", "autumn", "winter"] },
 ];
 
 export const DEMO_USER_ID = "00000000-0000-4000-8000-000000000001";
 
-function placeholderSvg(item: SeedItem): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240"><rect width="200" height="240" fill="#f4f1ec"/><rect x="40" y="40" width="120" height="160" rx="18" fill="${item.color_hex}" stroke="#00000022"/></svg>`;
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-}
 
 export function seedItems(userId = DEMO_USER_ID, now = new Date()): WardrobeItem[] {
   return SEED.map((s, i) => ({
@@ -39,7 +37,7 @@ export function seedItems(userId = DEMO_USER_ID, now = new Date()): WardrobeItem
     ...s,
     id: `00000000-0000-4000-9000-${String(i + 1).padStart(12, "0")}`,
     user_id: userId,
-    image_url: placeholderSvg(s),
+    image_url: null, // rendered as garment art in the UI
     image_path: null,
     wear_count: 0,
     last_worn_at: null,
@@ -52,13 +50,13 @@ export function seedProfile(userId = DEMO_USER_ID): Profile {
   return {
     id: userId,
     display_name: "Demo",
-    body_shape: "rectangle",
-    body_shape_source: "manual",
-    body_metrics: null,
+    body_shape: "inverted_triangle",
+    body_shape_source: "detected",
+    body_metrics: { method: "manual_circumference", unit: "cm", bust: 104, waist: 82, hip: 92, bust_to_hip: 1.13, waist_to_hip: 0.891, confidence: 0.86, measured_at: "2026-11-01T00:00:00.000Z" },
     fit_preferences: { ...DEFAULT_FIT_PREFERENCES },
-    budget: { max_per_item: 150, currency: "USD" },
+    budget: { max_per_item: 80, currency: "USD" },
     department: "unisex",
-    sizes: { ...DEFAULT_SIZES },
+    sizes: { ...DEFAULT_SIZES, top: "M", bottom_waist: 32, bottom_inseam: 30, shoe: "10" },
   };
 }
 

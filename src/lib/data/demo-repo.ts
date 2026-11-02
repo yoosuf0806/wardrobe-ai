@@ -87,6 +87,12 @@ export class DemoRepository implements Repository {
     const at = inLaundry ? new Date().toISOString() : null;
     s.items = s.items.map((i) => (itemIds.includes(i.id) ? { ...i, in_laundry_since: at } : i));
   }
+  async listRejectedOutfits(days: number) {
+    const since = Date.now() - days * 86_400_000;
+    return state()
+      .swipes.filter((s) => s.decision === "reject" && new Date(s.at).getTime() >= since)
+      .map((s) => s.item_ids);
+  }
   async recordSwipe(swipe: { occasion: string; item_ids: string[]; decision: "accept" | "reject"; round: number }) {
     state().swipes.unshift({ ...swipe, at: new Date().toISOString() });
   }

@@ -56,6 +56,8 @@ export class AmazonShoppingProvider implements ShoppingProvider {
         reviews?: number;
         extracted_price?: number;
         sponsored?: boolean;
+        prime?: boolean;
+        delivery?: string[] | string;
       }[];
     };
     return (json.organic_results ?? [])
@@ -70,6 +72,7 @@ export class AmazonShoppingProvider implements ShoppingProvider {
         image_url: r.thumbnail ?? null,
         rating: r.rating ?? null,
         reviews: r.reviews ?? null,
+        prime: r.prime === true || /prime/i.test(String(r.delivery ?? "")),
       }));
   }
 }
@@ -134,8 +137,9 @@ export class MockShoppingProvider implements ShoppingProvider {
         currency: spec.currency,
         url: amazonSearchUrl({ ...spec, query: `${brand} ${colorWord} ${spec.subcategory}` }),
         image_url: null,
-        rating: 3.6 + (r % 14) / 10,
+        rating: Math.round((3.6 + (r % 14) / 10) * 10) / 10,
         reviews: 10 + r * 7,
+        prime: r % 3 !== 0,
       };
     });
   }

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { classifyBodyShape } from "@/lib/body/classify";
 import { evaluateHarmony, isNeutral } from "@/lib/engine/color";
 import { activeItemRules, userReject } from "@/lib/engine/body-rules";
-import { analyzeMatchGaps, analyzeWearFrequency, sizeFor } from "@/lib/engine/gaps";
+import { analyzeMatchGaps, analyzeThinInventory, analyzeWearFrequency, sizeFor } from "@/lib/engine/gaps";
 import { resolveOccasion } from "@/lib/engine/occasions";
 import { isInLaundry, itemIds, recommendOutfits } from "@/lib/engine/recommend";
 import { seedItems, seedLogs, seedProfile } from "@/lib/data/seed";
@@ -15,6 +15,7 @@ const weather = (temp: number, extra: Partial<Weather> = {}): Weather => ({
   feels_like_c: temp,
   humidity: 50,
   rain_probability: 0,
+  wind_kph: null,
   condition: "Clear",
   location_name: null,
   latitude: 51.5,
@@ -46,18 +47,17 @@ describe("colour harmony", () => {
 
 describe("body shape classification", () => {
   it("classifies tape measurements", () => {
-    expect(classifyBodyShape({ kind: "circumference", shoulder: 92, waist: 66, hip: 94 }).shape).toBe("hourglass");
-    expect(classifyBodyShape({ kind: "circumference", shoulder: 86, waist: 72, hip: 100 }).shape).toBe("pear");
-    expect(classifyBodyShape({ kind: "circumference", shoulder: 104, waist: 82, hip: 92 }).shape).toBe("inverted_triangle");
-    expect(classifyBodyShape({ kind: "circumference", shoulder: 90, waist: 80, hip: 92 }).shape).toBe("rectangle");
-    expect(classifyBodyShape({ kind: "circumference", shoulder: 100, waist: 102, hip: 101 }).shape).toBe("oval");
+    expect(classifyBodyShape({ bust: 92, waist: 66, hip: 94 }).shape).toBe("hourglass");
+    expect(classifyBodyShape({ bust: 86, waist: 72, hip: 100 }).shape).toBe("pear");
+    expect(classifyBodyShape({ bust: 104, waist: 82, hip: 92 }).shape).toBe("inverted_triangle");
+    expect(classifyBodyShape({ bust: 90, waist: 80, hip: 92 }).shape).toBe("rectangle");
+    expect(classifyBodyShape({ bust: 100, waist: 102, hip: 101 }).shape).toBe("oval");
   });
-  it("classifies frontal silhouette widths", () => {
-    expect(classifyBodyShape({ kind: "frontal_width", shoulder: 150, waist: 135, hip: 148 }).shape).toBe("rectangle");
-    expect(classifyBodyShape({ kind: "frontal_width", shoulder: 130, waist: 100, hip: 160 }).shape).toBe("pear");
+  it("is unit-independent", () => {
+    expect(classifyBodyShape({ bust: 36, waist: 26, hip: 37 }).shape).toBe(classifyBodyShape({ bust: 91.4, waist: 66, hip: 94 }).shape);
   });
-  it("rejects non-positive input", () => {
-    expect(() => classifyBodyShape({ kind: "circumference", shoulder: 0, waist: 1, hip: 1 })).toThrow();
+  it("rejects missing input", () => {
+    expect(() => classifyBodyShape({ bust: 0, waist: 1, hip: 1 })).toThrow();
   });
 });
 
@@ -125,7 +125,7 @@ describe("gap analysis", () => {
     expect(gaps.length).toBeGreaterThan(0);
     expect(gaps.some((g) => g.trigger === "formality_ceiling")).toBe(true);
     for (const g of gaps) {
-      expect(g.spec.max_price).toBe(150);
+      expect(g.spec.max_price).toBe(profile().budget.max_per_item);
       expect(g.spec.formality).toBeGreaterThanOrEqual(9);
       expect(g.spec.query.length).toBeGreaterThan(3);
     }
@@ -228,9 +228,9 @@ describe("swipe deck rounds", () => {
     expect(used).not.toContain(byName("khaki chinos").id);
   });
 
-  it("returns laundry items to the closet after 7 days", () => {
-    expect(isInLaundry({ in_laundry_since: new Date(NOW.getTime() - 2 * 86_400_000).toISOString() }, NOW)).toBe(true);
-    expect(isInLaundry({ in_laundry_since: new Date(NOW.getTime() - 8 * 86_400_000).toISOString() }, NOW)).toBe(false);
+  it("returns laundry items to the closet after 2 days", () => {
+    expect(isInLaundry({ in_laundry_since: new Date(NOW.getTime() - 1 * 86_400_000).toISOString() }, NOW)).toBe(true);
+    expect(isInLaundry({ in_laundry_since: new Date(NOW.getTime() - 3 * 86_400_000).toISOString() }, NOW)).toBe(false);
   });
 });
 
@@ -245,5 +245,35 @@ describe("sizes in shopping specs", () => {
     const res = recommendOutfits({ items, profile: p, occasion: occ, weather: weather(18), now: NOW });
     const shoeGap = analyzeMatchGaps(items, p, occ, res).find((g) => g.spec.category === "footwear")!;
     expect(shoeGap.spec.query).toContain("size 10 US");
+  });
+});
+
+describe("shop gap triggers", () => {
+  // the grey tee (formality 3) also works for the gym – drop it so the tank is the only option
+  const noTee = items.filter((i) => i.subcategory !== "grey crew-neck t-shirt");
+  it("flags a single usable gym top as thin inventory", () => {
+    const occ = resolveOccasion("Gym");
+    const res = recommendOutfits({ items: noTee, profile: profile(), occasion: occ, weather: weather(20), now: NOW });
+    const gaps = analyzeThinInventory(noTee, profile(), occ, res);
+    expect(gaps.find((g) => g.spec.category === "top")?.headline).toBe("Only one gym top available");
+  });
+  it("suggests a backup when the only suitable piece is in the laundry", () => {
+    const occ = resolveOccasion("Gym");
+    const tank = byName("performance tank");
+    const washing = noTee.map((i) => (i.id === tank.id ? { ...i, in_laundry_since: NOW.toISOString() } : i));
+    const res = recommendOutfits({ items: washing, profile: profile(), occasion: occ, weather: weather(20), now: NOW });
+    const gap = analyzeMatchGaps(washing, profile(), occ, res, NOW).find((g) => g.spec.category === "top");
+    expect(gap?.trigger).toBe("laundry_backup");
+    expect(gap?.headline).toBe("Replaces Charcoal Performance Tank (in laundry)");
+  });
+});
+
+describe("soft long-sleeve preference", () => {
+  it("nudges long sleeves up without filtering short ones", () => {
+    const p = profile({ fit_preferences: { ...seedProfile().fit_preferences, prefer_long_sleeves: true } });
+    const res = recommendOutfits({ items, profile: p, occasion: resolveOccasion("Office"), weather: weather(18), now: NOW });
+    const top = res.candidates[0].top ?? res.candidates[0].onePiece;
+    expect(["long_sleeve", "three_quarter"]).toContain(top?.sleeve_length);
+    expect(res.pool.some((c) => c.top?.sleeve_length === "short_sleeve")).toBe(true);
   });
 });

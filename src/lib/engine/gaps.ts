@@ -2,12 +2,13 @@
 // shoppable product specification.
 
 import { STAPLE_COLORS, countDistinctColors, evaluateHarmony } from "./color";
-import { activeItemRules } from "./body-rules";
+import { activeItemRules, userReject } from "./body-rules";
+import { describe as describeItem, isInLaundry } from "./recommend";
 import { OCCASIONS, resolveOccasion, type OccasionProfile } from "./occasions";
 import type { RecommendResult } from "./recommend";
 import type { Category, Department, Fit, OutfitLog, Profile, Sizes, WardrobeItem } from "../types";
 
-export type GapTrigger = "incomplete_match" | "formality_ceiling" | "weather" | "wear_frequency";
+export type GapTrigger = "incomplete_match" | "formality_ceiling" | "weather" | "wear_frequency" | "laundry_backup" | "thin_inventory";
 
 export interface GapSpec {
   category: Category;
@@ -28,6 +29,8 @@ export interface StyleGap {
   trigger: GapTrigger;
   occasion: string;
   urgency: number; // 0..1
+  /** short reason for product tiles, e.g. "Only one gym top available" */
+  headline: string;
   message: string;
   spec: GapSpec;
 }
@@ -155,7 +158,7 @@ const ROLE_LABEL: Record<Category, string> = {
 };
 
 /** Trigger 1: the requested occasion can't be satisfied by the current inventory. */
-export function analyzeMatchGaps(items: WardrobeItem[], profile: Profile, occasion: OccasionProfile, result: RecommendResult): StyleGap[] {
+export function analyzeMatchGaps(items: WardrobeItem[], profile: Profile, occasion: OccasionProfile, result: RecommendResult, now = new Date()): StyleGap[] {
   const gaps: StyleGap[] = [];
   const [min, max] = occasion.formality;
   const target = Math.round((min + max) / 2);
@@ -176,10 +179,24 @@ export function analyzeMatchGaps(items: WardrobeItem[], profile: Profile, occasi
     const ceiling = owned.length ? Math.max(...owned.map((i) => i.formality)) : 0;
     const isCeiling = owned.length > 0 && ceiling < min;
     const spec = makeSpec(cat, target, profile, pool);
+    // Would something in the laundry have filled this slot?
+    const washing = owned.find((i) => isInLaundry(i, now) && i.formality >= min - 1 && i.formality <= max + 1 && !userReject(i, profile.fit_preferences));
+    if (washing) {
+      gaps.push({
+        trigger: "laundry_backup",
+        occasion: occasion.label,
+        urgency: 0.55,
+        headline: `Replaces ${titleCase(describeItem(washing))} (in laundry)`,
+        message: `Your ${describeItem(washing)} is in the laundry and it's your only ${ROLE_LABEL[cat]} for ${occasion.label.toLowerCase()}. A backup ${spec.color_name} ${spec.subcategory} would keep you covered.`,
+        spec,
+      });
+      continue;
+    }
     gaps.push({
       trigger: isCeiling ? "formality_ceiling" : "incomplete_match",
       occasion: occasion.label,
       urgency: isCeiling ? 0.9 : 0.8,
+      headline: isCeiling ? `Your most formal ${ROLE_LABEL[cat]} is a ${ceiling}/10` : `No ${ROLE_LABEL[cat]} for ${occasion.label.toLowerCase()}`,
       message: isCeiling
         ? `${occasion.label} calls for formality ${min}+, but your most formal ${ROLE_LABEL[cat]} is a ${ceiling}. You're missing: ${spec.color_name} ${spec.subcategory}. Here are options within your ${fmt(spec.max_price)} budget.`
         : `You don't have a suitable ${ROLE_LABEL[cat]} for ${occasion.label.toLowerCase()} in this weather. Missing piece: ${spec.color_name} ${spec.subcategory}. Here are options within ${fmt(spec.max_price)}.`,
@@ -193,12 +210,13 @@ export function analyzeMatchGaps(items: WardrobeItem[], profile: Profile, occasi
       trigger: "weather",
       occasion: occasion.label,
       urgency: 0.85,
+      headline: `No warm layer for ${wp.band} weather`,
       message: `It's ${wp.summary.split(",")[0]} and nothing in your wardrobe works as an outer layer for ${occasion.label.toLowerCase()}. Missing piece: ${spec.color_name} ${spec.subcategory}.`,
       spec,
     });
   } else if (wp.wantsRainProtection && !eligible.outerwear.some((o) => o.waterproof) && !items.some((i) => i.category === "outerwear" && i.waterproof)) {
     const spec = makeSpec("outerwear", Math.min(target, 6), profile, pool, { rain: true });
-    gaps.push({ trigger: "weather", occasion: occasion.label, urgency: 0.5, message: `Rain is likely and you don't own a waterproof layer. Consider a ${spec.subcategory}.`, spec });
+    gaps.push({ trigger: "weather", occasion: occasion.label, urgency: 0.5, headline: "No waterproof layer", message: `Rain is likely and you don't own a waterproof layer. Consider a ${spec.subcategory}.`, spec });
   }
   return gaps;
 }
@@ -229,6 +247,7 @@ export function analyzeWearFrequency(logs: OutfitLog[], items: WardrobeItem[], p
         gaps.push({
           trigger: "wear_frequency",
           occasion: occ.label,
+          headline: `Worn ${ls.length}× with only ${distinct} ${ROLE_LABEL[cat]}${distinct === 1 ? "" : "s"}`,
           urgency: Math.min(1, 0.3 + ls.length / 15),
           message: `You've dressed for ${occ.label.toLowerCase()} ${ls.length} times in ${windowDays} days, rotating only ${distinct} ${ROLE_LABEL[cat]}${distinct === 1 ? "" : "s"}. Adding ${spec.color_name} ${spec.subcategory} would give you more variety.`,
           spec,
@@ -237,4 +256,33 @@ export function analyzeWearFrequency(logs: OutfitLog[], items: WardrobeItem[], p
     }
   }
   return gaps.sort((a, b) => b.urgency - a.urgency);
+}
+
+function titleCase(s: string) {
+  return s.replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+/**
+ * Trigger 3: an occasion technically works, but there's only one usable piece
+ * in a key category (e.g. a single gym top) – one wash away from a gap.
+ */
+export function analyzeThinInventory(items: WardrobeItem[], profile: Profile, occasion: OccasionProfile, result: RecommendResult): StyleGap[] {
+  const [min, max] = occasion.formality;
+  const target = Math.round((min + max) / 2);
+  const gaps: StyleGap[] = [];
+  const { eligible } = result;
+  const roles: Category[] = eligible.one_piece.length > 0 && (eligible.top.length === 0 || eligible.bottom.length === 0) ? ["footwear"] : ["top", "bottom", "footwear"];
+  for (const cat of roles) {
+    if (eligible[cat].length !== 1) continue;
+    const spec = makeSpec(cat, target, profile, [...eligible.top, ...eligible.bottom, ...eligible.footwear]);
+    gaps.push({
+      trigger: "thin_inventory",
+      occasion: occasion.label,
+      urgency: 0.45,
+      headline: cat === "footwear" ? `Only one pair of ${occasion.label.toLowerCase()} shoes available` : `Only one ${occasion.label.toLowerCase()} ${ROLE_LABEL[cat]} available`,
+      message: `Your ${describeItem(eligible[cat][0])} is the only ${ROLE_LABEL[cat]} that works for ${occasion.label.toLowerCase()}. A ${spec.color_name} ${spec.subcategory} would give you a second option.`,
+      spec,
+    });
+  }
+  return gaps;
 }

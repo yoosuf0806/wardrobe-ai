@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { Brand } from "@/components/nav";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export default function LoginPage() {
@@ -22,8 +23,8 @@ export default function LoginPage() {
   return (
     <div className="mx-auto mt-16 max-w-sm space-y-6">
       <div className="text-center">
-        <h1 className="font-display text-3xl font-semibold">SmartStylist</h1>
-        <p className="mt-1 text-sm text-muted">Your wardrobe, styled for the day ahead.</p>
+        <h1><Brand className="text-[52px]" /></h1>
+        <p className="mt-2 text-[15px] text-muted">Your wardrobe, styled for the day ahead.</p>
       </div>
       {!configured ? (
         <p className="card text-sm">Supabase isn&apos;t configured, so the app runs in demo mode. <a className="underline" href="/">Open the demo →</a></p>

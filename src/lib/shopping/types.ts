@@ -9,6 +9,7 @@ export interface ProductListing {
   image_url: string | null;
   rating: number | null;
   reviews: number | null;
+  prime?: boolean;
 }
 
 export interface RankedProduct extends ProductListing {

@@ -8,19 +8,30 @@ export interface OccasionProfile {
 }
 
 export const OCCASIONS: OccasionProfile[] = [
-  { key: "gym", label: "Gym / Workout", formality: [1, 2], keywords: ["gym", "workout", "run", "yoga", "training", "sport"] },
+  // Quick picks shown as chips on the Stylist screen
+  { key: "office", label: "Office", formality: [5, 7], keywords: ["office", "work", "business casual", "meeting"] },
+  { key: "casual_date", label: "Casual Date", formality: [4, 6], keywords: ["casual date", "coffee date", "lunch date"] },
+  { key: "formal_event", label: "Formal Event", formality: [8, 9], keywords: ["formal", "wedding", "ceremony", "cocktail", "engagement"] },
+  { key: "gym", label: "Gym", formality: [1, 2], keywords: ["gym", "workout", "run", "yoga", "training", "sport"] },
+  { key: "party", label: "Party", formality: [5, 8], keywords: ["party", "club", "night out", "birthday", "concert"] },
+  // Reached through free text
   { key: "lounge", label: "Lounging at home", formality: [1, 3], keywords: ["home", "lounge", "relax", "chill"] },
-  { key: "errands", label: "Errands / Weekend", formality: [2, 4], keywords: ["errand", "grocer", "weekend", "market", "brunch"] },
-  { key: "casual", label: "Casual day out", formality: [3, 5], keywords: ["casual", "friends", "hangout", "coffee", "travel", "mall"] },
+  { key: "errands", label: "Errands", formality: [2, 4], keywords: ["errand", "grocer", "weekend", "market", "brunch"] },
+  { key: "casual", label: "Casual day out", formality: [3, 5], keywords: ["casual", "friends", "hangout", "travel", "mall"] },
   { key: "date", label: "Date night", formality: [5, 7], keywords: ["date", "romantic", "drinks"] },
-  { key: "business_casual", label: "Business casual / Office", formality: [5, 7], keywords: ["office", "work", "business casual", "meeting"] },
-  { key: "party", label: "Party / Night out", formality: [5, 8], keywords: ["party", "club", "night out", "birthday", "concert"] },
-  { key: "dinner", label: "Dinner at a nice restaurant", formality: [6, 8], keywords: ["dinner", "restaurant"] },
+  { key: "dinner", label: "Dinner out", formality: [6, 8], keywords: ["dinner", "restaurant"] },
   { key: "interview", label: "Job interview", formality: [7, 9], keywords: ["interview", "presentation", "pitch"] },
-  { key: "business_formal", label: "Business formal", formality: [8, 9], keywords: ["formal meeting", "business formal", "board", "conference"] },
-  { key: "wedding_guest", label: "Wedding guest", formality: [7, 9], keywords: ["wedding", "engagement", "ceremony", "cocktail"] },
-  { key: "black_tie", label: "Black tie / Gala", formality: [9, 10], keywords: ["black tie", "gala", "ball", "opera", "white tie"] },
+  { key: "business_formal", label: "Business formal", formality: [8, 9], keywords: ["business formal", "board", "conference"] },
+  { key: "black_tie", label: "Black tie", formality: [9, 10], keywords: ["black tie", "gala", "ball", "opera", "white tie"] },
 ];
+
+export const QUICK_OCCASIONS = OCCASIONS.slice(0, 5);
+
+/** Canonical label for a logged occasion ("Business casual / Office" → "Office"); free text is kept. */
+export function canonicalOccasionLabel(text: string): string {
+  const r = resolveOccasion(text);
+  return OCCASIONS.find((o) => o.key === r.key)?.label ?? r.label;
+}
 
 export function resolveOccasion(rawInput: string, formalityOverride?: number | null): OccasionProfile {
   const input = rawInput.trim().replace(/^\w/, (c) => c.toUpperCase());

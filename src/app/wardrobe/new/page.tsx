@@ -102,12 +102,16 @@ export default function NewItemPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-2xl font-semibold">Add an item</h1>
+      <header className="space-y-2">
+        <p className="eyebrow">Wardrobe</p>
+        <h1 className="display text-[44px]">Add a piece</h1>
+        <p className="text-[15px] text-muted">Snap one garment. We&apos;ll read the colour, fabric and formality for you.</p>
+      </header>
 
       <input ref={inputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
 
       {!preview ? (
-        <button onClick={() => inputRef.current?.click()} className="card flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 border-dashed text-muted hover:border-ink">
+        <button onClick={() => inputRef.current?.click()} className="card flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 border-2 border-dashed text-muted hover:border-ink">
           <span className="text-3xl">📷</span>
           <span className="text-sm">Take or upload a photo of one garment</span>
           <span className="text-xs">Lay it flat or hang it against a plain background</span>
@@ -116,7 +120,7 @@ export default function NewItemPage() {
         <div className="grid gap-4 sm:grid-cols-[200px_1fr]">
           <div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={preview} alt="Garment preview" className="w-full rounded-xl object-cover" />
+            <img src={preview} alt="Garment preview" className="w-full rounded-[20px] object-cover" />
             <button onClick={() => inputRef.current?.click()} className="mt-2 text-xs text-muted underline">Retake</button>
           </div>
 
@@ -143,7 +147,7 @@ export default function NewItemPage() {
                 <div><label className="label">Length</label>{sel("length", LENGTHS)}</div>
                 <div>
                   <label className="label">Formality: {attrs.formality}/10</label>
-                  <input type="range" min={1} max={10} value={attrs.formality} onChange={(e) => set("formality", Number(e.target.value))} className="w-full accent-ink" />
+                  <input type="range" min={1} max={10} value={attrs.formality} onChange={(e) => set("formality", Number(e.target.value))} className="w-full accent-[var(--color-ink)]" />
                 </div>
               </div>
               <div>

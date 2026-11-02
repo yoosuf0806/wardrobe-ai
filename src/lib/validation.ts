@@ -32,6 +32,7 @@ export const FitPreferencesSchema = z.object({
   avoid_colors: z.array(hex).max(20),
   avoid_patterns: z.array(z.enum(PATTERNS)),
   disabled_rules: z.array(z.string().max(60)).max(50),
+  prefer_long_sleeves: z.boolean().default(false),
   notes: z.string().max(500),
 });
 
@@ -42,14 +43,13 @@ export const ProfilePatchSchema = z
     body_shape_source: z.enum(["detected", "manual"]).nullable(),
     body_metrics: z
       .object({
-        method: z.enum(["mediapipe_frontal", "manual_circumference"]),
-        shoulder: z.number().positive(),
-        waist: z.number().positive(),
-        hip: z.number().positive(),
-        shoulder_to_hip: z.number(),
+        method: z.literal("manual_circumference"),
+        unit: z.enum(["cm", "in"]),
+        bust: z.number().positive().max(300),
+        waist: z.number().positive().max(300),
+        hip: z.number().positive().max(300),
+        bust_to_hip: z.number(),
         waist_to_hip: z.number(),
-        waist_to_shoulder: z.number(),
-        torso_to_leg: z.number().optional(),
         confidence: z.number().min(0).max(1),
         measured_at: z.string(),
       })
@@ -84,9 +84,10 @@ export const RecommendRequestSchema = z.object({
 });
 
 export const GapSchema = z.object({
-  trigger: z.enum(["incomplete_match", "formality_ceiling", "weather", "wear_frequency"]),
+  trigger: z.enum(["incomplete_match", "formality_ceiling", "weather", "wear_frequency", "laundry_backup", "thin_inventory"]),
   occasion: z.string().max(120),
   urgency: z.number().min(0).max(1),
+  headline: z.string().max(120).default(""),
   message: z.string().max(600),
   spec: z.object({
     category: z.enum(CATEGORIES),

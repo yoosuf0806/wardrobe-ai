@@ -23,5 +23,7 @@ export interface Repository {
   /** Put items in / take items out of the laundry. */
   setLaundry(itemIds: string[], inLaundry: boolean): Promise<void>;
   /** Record a swipe decision (training signal for future personalisation). */
+  /** item_ids of outfits rejected in the last `days` days (cooldown). */
+  listRejectedOutfits(days: number): Promise<string[][]>;
   recordSwipe(swipe: { occasion: string; item_ids: string[]; decision: "accept" | "reject"; round: number }): Promise<void>;
 }

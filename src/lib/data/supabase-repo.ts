@@ -113,6 +113,13 @@ export class SupabaseRepository implements Repository {
     if (error) throw error;
   }
 
+  async listRejectedOutfits(days: number): Promise<string[][]> {
+    const since = new Date(Date.now() - days * 86_400_000).toISOString();
+    const { data, error } = await this.db.from("outfit_swipes").select("item_ids").eq("decision", "reject").gte("created_at", since).limit(200);
+    if (error) throw error;
+    return (data ?? []).map((r) => r.item_ids as string[]);
+  }
+
   async recordSwipe(swipe: { occasion: string; item_ids: string[]; decision: "accept" | "reject"; round: number }): Promise<void> {
     const { error } = await this.db.from("outfit_swipes").insert({ ...swipe, user_id: this.userId });
     if (error) throw error;

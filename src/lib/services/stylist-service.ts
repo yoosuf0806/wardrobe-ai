@@ -3,7 +3,8 @@ import { claudeEnabled, describeClaudeError } from "../ai/claude";
 import { styleWithClaude } from "../ai/stylist";
 import { analyzeMatchGaps, type StyleGap } from "../engine/gaps";
 import { resolveOccasion } from "../engine/occasions";
-import { itemIds, recommendOutfits, type OutfitCandidate } from "../engine/recommend";
+import { REJECT_COOLDOWN_DAYS, describe, itemIds, outfitKey, recommendOutfits, type OutfitCandidate } from "../engine/recommend";
+import { lookTitle } from "../engine/titles";
 import type { Repository } from "../data/repository";
 import { amazonSearchUrl, getShoppingProvider } from "../shopping/providers";
 import { rankProducts } from "../shopping/rank";
@@ -66,17 +67,33 @@ function toView(c: OutfitCandidate, title: string, note: string): OutfitView {
   return { id: c.id, title, note, score: c.score, formality: c.formality, harmony: c.harmony.scheme, complete: c.complete, items, item_ids: itemIds(c) };
 }
 
+/** Short stylist-style note from the engine's reasons (formality line is for the LLM only). */
+function engineNote(c: OutfitCandidate): string {
+  const pieces = [c.top ?? c.onePiece, c.bottom].filter(Boolean).map((i) => describe(i!));
+  const lead = pieces.length === 2 ? `${cap(pieces[0])} over ${pieces[1]}.` : pieces.length ? `${cap(pieces[0])} as the hero piece.` : "";
+  return [lead, ...c.reasons.slice(1, 4)].filter(Boolean).join(" ");
+}
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 function engineTitle(c: OutfitCandidate): string {
-  const anchor = c.onePiece ?? c.top;
-  if (!anchor) return "Your look";
-  const firstColorWord = anchor.color_name.split(/[\s/]/)[0]?.toLowerCase() ?? "";
-  const name = anchor.subcategory.toLowerCase().includes(firstColorWord) ? anchor.subcategory : `${anchor.color_name} ${anchor.subcategory}`;
-  return name.replace(/\b\w/g, (m) => m.toUpperCase());
+  return lookTitle(c.id, c.formality, c.harmony.scheme);
 }
 
 export async function recommend(repo: Repository, req: RecommendRequest): Promise<RecommendResponse> {
-  const [profile, items] = await Promise.all([repo.getProfile(), repo.listItems()]);
+  const [profile, items, recentRejects] = await Promise.all([repo.getProfile(), repo.listItems(), repo.listRejectedOutfits(REJECT_COOLDOWN_DAYS)]);
   const occasion = resolveOccasion(req.occasion, req.formality);
+  // Outfits rejected in the last 2 days aren't suggested again until the cooldown passes
+  const byId = new Map(items.map((i) => [i.id, i]));
+  const cooled = recentRejects.map((ids) => {
+    const clothes = ids.map((id) => byId.get(id)).filter((i): i is WardrobeItem => !!i && i.category !== "accessory");
+    return outfitKey({
+      top: clothes.find((i) => i.category === "top") ?? null,
+      bottom: clothes.find((i) => i.category === "bottom") ?? null,
+      onePiece: clothes.find((i) => i.category === "one_piece") ?? null,
+      footwear: clothes.find((i) => i.category === "footwear") ?? null,
+      outerwear: clothes.find((i) => i.category === "outerwear") ?? null,
+    });
+  });
   const weather =
     typeof req.manual_temp_c === "number" ? manualWeather(req.manual_temp_c, !!req.manual_rain, req.lat ?? null) : await getWeather(req.lat ?? null, req.lon ?? null);
 
@@ -87,7 +104,7 @@ export async function recommend(repo: Repository, req: RecommendRequest): Promis
     weather,
     excludeItemIds: req.exclude_item_ids,
     avoidItemIds: req.avoid_item_ids,
-    excludeOutfitIds: req.exclude_outfit_ids,
+    excludeOutfitIds: [...(req.exclude_outfit_ids ?? []), ...cooled],
   });
   const gaps = analyzeMatchGaps(items, profile, occasion, result);
   const completePool = result.pool.filter((c) => c.complete);
@@ -109,6 +126,7 @@ export async function recommend(repo: Repository, req: RecommendRequest): Promis
             trigger: "incomplete_match",
             occasion: occasion.label,
             urgency: 0.4,
+            headline: "Suggested by your stylist",
             message: styled.gapSuggestion.description,
             spec: {
               category: cat,
@@ -133,7 +151,7 @@ export async function recommend(repo: Repository, req: RecommendRequest): Promis
   }
 
   if (outfits.length === 0) {
-    outfits = result.candidates.map((c) => toView(c, engineTitle(c), c.reasons.join(" ")));
+    outfits = result.candidates.map((c) => toView(c, engineTitle(c), engineNote(c)));
   }
 
   return {

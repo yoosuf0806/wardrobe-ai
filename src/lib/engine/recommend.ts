@@ -21,7 +21,7 @@ import type { OccasionProfile } from "./occasions";
 import { profileWeather, weatherItemScore, weatherReject, type WeatherProfile } from "./weather-rules";
 import type { Category, Profile, WardrobeItem, Weather } from "../types";
 
-export const LAUNDRY_DAYS = 7; // items return to the closet automatically after this many days
+export const LAUNDRY_DAYS = 2; // items return to the closet automatically after this many days
 
 export interface RecommendInput {
   items: WardrobeItem[];
@@ -75,8 +75,11 @@ export function itemIds(c: Pick<OutfitCandidate, "top" | "bottom" | "onePiece" |
   return [c.top, c.bottom, c.onePiece, c.footwear, c.outerwear, c.accessory].filter(Boolean).map((i) => i!.id);
 }
 
+/** Rejected outfits are hidden for this long, then may be suggested again. */
+export const REJECT_COOLDOWN_DAYS = 2;
+
 /** Outfit identity ignores the accessory, so "same clothes + different belt" counts as a repeat. */
-function outfitKey(parts: Pick<OutfitCandidate, "top" | "bottom" | "onePiece" | "footwear" | "outerwear">): string {
+export function outfitKey(parts: Pick<OutfitCandidate, "top" | "bottom" | "onePiece" | "footwear" | "outerwear">): string {
   return [parts.top, parts.bottom, parts.onePiece, parts.footwear, parts.outerwear]
     .filter(Boolean)
     .map((i) => i!.id)
@@ -176,7 +179,7 @@ export function recommendOutfits(input: RecommendInput): RecommendResult {
   for (const t of tops) for (const b of bottoms) cores.push({ top: t, bottom: b, onePiece: null });
   for (const o of onePieces) cores.push({ top: null, bottom: null, onePiece: o });
 
-  const ctx = { wp, occasion, itemRules, outfitRules, now, accessories: eligible.accessory, avoid };
+  const ctx = { wp, occasion, itemRules, outfitRules, now, accessories: eligible.accessory, avoid, preferLongSleeves: prefs.prefer_long_sleeves };
   const all: OutfitCandidate[] = [];
   for (const core of cores)
     for (const footwear of shoes)
@@ -206,6 +209,7 @@ type Ctx = {
   now: Date;
   accessories: WardrobeItem[];
   avoid: Set<string>;
+  preferLongSleeves: boolean;
 };
 
 /** Best accessory that keeps (or improves) the outfit's colour story, or null. */
@@ -252,6 +256,11 @@ function scoreEnsemble(parts: Pick<OutfitCandidate, "top" | "bottom" | "onePiece
   for (const r of ctx.outfitRules) {
     const w = r.evaluate({ upper, lower, onePiece: parts.onePiece, outerwear: parts.outerwear });
     if (w !== 0) ruleHits.push({ id: r.id, description: r.description, weight: w });
+  }
+  const upperPiece = parts.top ?? parts.onePiece;
+  if (ctx.preferLongSleeves && upperPiece && ctx.wp.band !== "hot") {
+    const long = upperPiece.sleeve_length === "long_sleeve" || upperPiece.sleeve_length === "three_quarter";
+    ruleHits.push({ id: "user_long_sleeves", description: long ? "Full-length sleeves, as you prefer" : "Shorter sleeves than you usually prefer", weight: long ? 0.12 : -0.08 });
   }
   const bodyRaw = ruleHits.reduce((a, h) => a + h.weight, 0);
   const body = Math.max(0, Math.min(1, 0.6 + bodyRaw));

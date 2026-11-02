@@ -7,7 +7,7 @@
 | Client | **Next.js 16 PWA** (App Router, Tailwind 4, mobile-first, installable) | Fastest path to a usable product; camera upload works in mobile browsers. A React Native/Expo app can reuse `src/lib/engine` and the same API later. |
 | Backend | **Supabase** – Postgres + pgvector, private Storage bucket, RLS on every table, magic-link auth | As specified. |
 | Vision + stylist LLM | **Claude** via `@anthropic-ai/sdk`, structured outputs (Zod schemas), server-side refusal fallback | One provider, typed JSON output, no hand-rolled parsing. |
-| Body analysis | **On-device MediaPipe Pose Landmarker** + segmentation mask; tape-measure alternative | The body photo is sensitive biometric data. It never leaves the device; only ratios are stored. |
+| Body analysis | **Measurements only** (bust/chest, waist, hip) → shape classification; the user can override it | Decided in v3: sizes and measurements give the same information without photo processing. Less complexity, and no biometric data. |
 | Shopping | **Amazon**: SerpAPI's Amazon engine for listings, with links rewritten to `/dp/{ASIN}?tag=…`; a "See more on Amazon" search link that needs no API key; a mock catalogue for the demo | Your choice of retailer. Legal and stable. Swappable for Amazon's own product API (PA-API / Creators API) once the Associates account qualifies. Scraping (Puppeteer) was deliberately not built; see §3. |
 | Core flow | Login → occasion → **swipe deck** (3 per round) → laundry prompt → next round | Defined by you (v2). |
 | Platform plan | Web app first, then mobile | The engine is plain TypeScript and portable to Expo/React Native unchanged. |
@@ -18,8 +18,8 @@
 ```
  Browser (PWA)                                  Next.js server (route handlers)                  External
  ───────────────                                ────────────────────────────────                 ────────
- /body  ── MediaPipe (WASM, on-device) ──┐
-        photo discarded, ratios only     │  PATCH /api/profile ─────────────► Supabase (RLS)
+ /profile ─ measurements → shape ─────────┐
+                                         │  PATCH /api/profile ─────────────► Supabase (RLS)
  /wardrobe/new ─ downscale + strip EXIF ─┼─ POST /api/wardrobe/analyze ──► Claude vision ─► attributes (user reviews)
                                          ├─ POST /api/wardrobe ──► remove.bg? ─► Fashion-CLIP? ─► Storage + wardrobe_items
  /stylist ─ geolocation ─────────────────┼─ POST /api/recommend
@@ -71,13 +71,13 @@ Gap specs respect the same layer: an oval profile gets `avoid_fits: ["slim"]` un
 | 5 | `image_url TEXT` implied public URLs for personal photos | Private bucket; per-user folder policies; signed URLs. |
 | 6 | No RLS policies defined | Owner-only policies on every table and on storage objects. |
 | 7 | No tables for gaps or product suggestions | Added `style_gaps` and `product_suggestions`. |
-| 8 | "3D mesh (SMPL)" from a single photo needs a GPU model server, and MediaPipe Pose has no waist landmark | Silhouette widths from the pose segmentation mask; ratios use thresholds tuned for frontal widths; tape-measure fallback; the user can override the result. SMPL can be added later as a server option. |
+| 8 | "3D mesh (SMPL)" from a single photo needs a GPU model server, and MediaPipe Pose has no waist landmark | v1 used on-device MediaPipe silhouette widths. In v3 it was replaced by typed measurements plus a manual shape choice, at your request. |
 | 9 | Puppeteer scraping: retailer ToS / bot protection, and it can't run in Supabase Edge Functions (Deno, short limits) | Replaced with a `ShoppingProvider` interface (SerpAPI now; affiliate feeds next). |
 | 10 | Whole wardrobe sent to the LLM; IDs not validated | Engine-first architecture (above). |
 | 11 | No department / sizing for shopping queries | Added `department`. Sizes are an open question. |
 | 12 | Body photo is biometric data (GDPR Art. 9, BIPA in Illinois) | Never uploaded; only ratios stored; deleting the account cascades. |
 
-## 4. Swipe-deck flow (v2)
+## 4. Swipe-deck flow (v2, UI refreshed in v3)
 
 ```
 pick occasion ──► POST /api/recommend (round 1) ──► 3 cards
@@ -93,7 +93,8 @@ round N+1: POST /api/recommend { avoid_item_ids: all rejected pieces,
 ```
 
 - **Avoidance is per category.** Rejected pieces are excluded wherever that category still has alternatives. A required category that would otherwise be empty (e.g. footwear when you own two office-appropriate pairs) re-admits them with a score penalty, and the UI says "Reusing your shoes".
-- **Laundry** is `wardrobe_items.in_laundry_since`. Items are excluded until marked clean, or automatically after 7 days (`LAUNDRY_DAYS`).
+- **Laundry** is `wardrobe_items.in_laundry_since`. Items are excluded until marked clean, or automatically after 2 days (`LAUNDRY_DAYS`).
+- **Rejected outfits** (from `outfit_swipes`) aren't suggested again for 2 days (`REJECT_COOLDOWN_DAYS`), across sessions.
 - **Every swipe is stored** in `outfit_swipes`. It's not used yet; it's the training data for learning personal taste (see roadmap).
 - **Accessories** are picked per ensemble *after* the clothes, so they never multiply the search space. One is added only if it doesn't lower colour harmony, and accessories don't count toward outfit diversity.
 
@@ -101,17 +102,17 @@ round N+1: POST /api/recommend { avoid_item_ids: all rejected pieces,
 
 - An Expo (React Native) app reusing `src/lib/engine`, `src/lib/types.ts` and the same API routes.
 - **Needed first:** the API currently authenticates via Supabase session cookies (web). The native app will send the Supabase access token as `Authorization: Bearer …`. A small change in `getRepository()`: build the Supabase client from the bearer token when present.
-- The swipe card would use `react-native-gesture-handler` + `reanimated`, the camera would use `expo-camera`, and the on-device body scan would use MediaPipe via `react-native-mediapipe` or a VisionCamera frame processor.
+- The swipe card would use `react-native-gesture-handler` + `reanimated`, and the camera would use `expo-camera`. No body-scan port is needed, since measurements are typed in.
 
 ## 6. Open questions for you
 
 Answered in v2: sizes ✔, Amazon ✔, accessories ✔, occasion-first flow (no calendar) ✔, swipe + laundry ✔, web first then mobile ✔.
 
+Answered in v3: affiliate revenue via Amazon Associates ✔, amazon.com for testing ✔, laundry returns after 2 days ✔, deal until combinations run out ✔, no body photos (measurements instead) ✔, UI per supplied designs ✔.
+
 Still open:
-1. **Amazon marketplace(s)**: amazon.com only, or also other regions (.co.uk, .ae, .in …)? Each needs its own Associates tag.
-2. **Laundry auto-return**: is 7 days right, or should it be a user setting?
-3. **Round limit**: after how many rejected rounds should we stop dealing and go straight to "here's what to buy"? Currently we deal until combinations run out.
-4. **Monetisation and data retention**: needed before the privacy policy can be finalised.
+1. **Data retention**: how long to keep outfit logs and swipes; account deletion already cascades.
+2. **Production Amazon data**: SerpAPI (paid per search) now, or apply for Amazon's own product API once the Associates account has qualifying sales.
 
 ## 7. Roadmap
 

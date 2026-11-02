@@ -3,24 +3,25 @@
 An AI wardrobe and personal stylist. Photograph your clothes, get daily outfits matched to the occasion, the live weather, your body shape and **your own fit rules**, and get shopping suggestions within your budget when your wardrobe has a gap.
 
 <p>
-<img src="docs/screenshots/1-occasion.png" width="190" alt="Pick an occasion">
-<img src="docs/screenshots/2-swipe-deck.png" width="190" alt="Swipe deck">
-<img src="docs/screenshots/3-laundry-prompt.png" width="190" alt="Laundry prompt after 3 rejections">
-<img src="docs/screenshots/4-accepted.png" width="190" alt="Accepted outfit">
+<img src="docs/screenshots/1-stylist.png" width="170" alt="Stylist: occasion chips and swipe deck">
+<img src="docs/screenshots/2-laundry.png" width="170" alt="Laundry prompt after 3 rejections">
+<img src="docs/screenshots/4-wardrobe.png" width="170" alt="Wardrobe">
+<img src="docs/screenshots/5-shop.png" width="170" alt="Shop: gap analysis with Amazon picks">
+<img src="docs/screenshots/6-profile.png" width="170" alt="Profile: fit and preferences">
 </p>
 
 Architecture, design decisions and the evaluation of the original brief are in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
 ## Features
 
-- **Wardrobe onboarding**: photo → downscaled on-device (EXIF/GPS stripped) → Claude vision extracts category, colour hex, pattern, fabric, fit, length, formality 1–10 and seasons → you review → saved. Optional background removal (remove.bg) and Fashion-CLIP embeddings.
-- **Body shape**: MediaPipe runs **in the browser** and measures shoulder, waist and hip from your silhouette. The photo never leaves the device. A tape-measure option and a manual override are available.
-- **Occasion → swipe deck**: after login you pick an occasion (office, party, …) and get 3 outfits as swipeable cards. Right = wear it (logged, rate later); left = not today. After 3 rejections a popup shows the pieces with their photos and asks *"Is any of this in the laundry?"* – mark them or skip. The next 3 outfits avoid everything already suggested (only a category with no alternatives, e.g. your only office shoes, is reused). Drag, ✕/♥ buttons and ←/→ keys all work.
-- **Laundry**: items in the laundry are left out of suggestions until you mark them clean, or automatically after 7 days. Manage them from the Wardrobe tab.
-- **Outfits include accessories**: an optional belt, watch, bag, scarf, etc., added only if it keeps the colour story. Scarves only appear when it's cold.
-- **Stylist engine**: a deterministic rules engine (formality, colour harmony, body rules, weather, freshness) builds candidate outfits; Claude picks and explains them. It works without an AI key too.
-- **Override layer**: for each fit attribute, choose *Never / Stylist decides / Always OK*, plus avoid-colours, avoid-patterns, sleeve whitelist, per-rule toggles and free-text notes. Your rules always beat body-type advice.
-- **Gap analysis → Amazon**: missing pieces, formality ceilings, weather gaps and "you keep wearing the same shoes" insights turn into product specs **in your size**, searched on Amazon with your Associates tag and ranked by budget, style match and urgency.
+Four tabs: **Stylist · Wardrobe · Shop · Profile**.
+
+- **Stylist**: pick an occasion from the chips (Office, Casual Date, Formal Event, Gym, Party, or "Other…" for free text) and an outfit card appears straight away. Swipe right (or ✓) to wear it; it's saved to *Saved looks* and logged. Swipe left (or ✕) to skip. After 3 skips a sheet shows the pieces with their photos and asks *"Anything in the laundry?"* – mark them or skip. The next 3 outfits avoid everything already shown; only a category with no alternatives (e.g. your only office shoes) is reused. This continues until the combinations run out. Drag, buttons and ←/→ keys all work.
+- **2-day rules**: laundry items come back automatically after 2 days, and a rejected outfit isn't suggested again for 2 days.
+- **Wardrobe**: pieces grouped by category, each showing availability, colour, pattern and a formality bar. Tap a piece to put it in the laundry or remove it. The + button adds a piece: Claude vision reads the photo and you review the details.
+- **Shop**: gap analysis across your main occasions, your outfit history and the laundry. It covers missing pieces, formality ceilings, "only one gym top", backups for laundry items and weather gaps. Each gap gets one Amazon pick **in your size**, split into within-budget and above-budget sections. Every link carries the affiliate tag.
+- **Profile**: body shape is calculated from your bust/waist/hip measurements (no photos), or you pick it yourself. It also holds sizes (tops, dress/frock, waist, length/inseam, shoes), fit overrides (*Avoid · Auto · Allow*, which always beat body-type advice), "prefer long sleeves", and the per-item budget. Changes save automatically.
+- **Stylist engine**: deterministic rules (formality, colour harmony, body shape, weather, freshness, accessories) build the candidates; Claude picks and explains them. It works without an AI key too.
 
 ## Quick start
 
@@ -49,14 +50,14 @@ With no environment variables the app runs in **demo mode**: a seeded 16-piece w
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Accounts, persistence, image storage |
 | `ANTHROPIC_API_KEY` | AI garment tagging and stylist notes (`STYLIST_MODEL`, `STYLIST_EFFORT` optional) |
 | `OPENWEATHER_API_KEY` | Live weather from the device location |
-| `AMAZON_ASSOCIATE_TAG` | Affiliate tag on every Amazon link (`AMAZON_DOMAIN` for other marketplaces) |
+| `AMAZON_ASSOCIATE_TAG` | **Required for revenue in production**: your Associates tag, added to every Amazon link (`AMAZON_DOMAIN` defaults to amazon.com) |
 | `SERPAPI_API_KEY` | Live Amazon product listings (via SerpAPI's Amazon engine) |
 | `REMOVE_BG_API_KEY` | Background removal when saving items |
 | `FASHION_CLIP_ENDPOINT` | 512-d visual embeddings (pgvector) |
 
 ## Scripts
 
-- `npm test`: engine test-suite (colour harmony, body classification, override precedence, recommendations, gaps, product ranking)
+- `npm test`: engine test suite (colour harmony, body classification, overrides, recommendations, swipe rounds, laundry, gaps, product ranking)
 - `npm run lint`: TypeScript check
 - `npm run build`: production build
 
@@ -65,7 +66,7 @@ With no environment variables the app runs in **demo mode**: a seeded 16-piece w
 ```
 src/lib/engine/     deterministic styling core (pure TS, portable to React Native)
 src/lib/ai/         Claude: garment tagging + stylist re-ranker (structured outputs)
-src/lib/body/       body-shape classifier + on-device MediaPipe measurement
+src/lib/body/       body-shape classifier (from measurements)
 src/lib/shopping/   provider interface (SerpAPI, mock) + ranking
 src/lib/data/       Repository interface → Supabase or in-memory demo
 src/app/            pages + API route handlers
