@@ -4,6 +4,7 @@
 // illustration from its pieces.
 
 import type { Archetype, Palette } from "../types";
+import { quizPhoto, type SamplePhoto } from "../samples/photos";
 
 export type PieceKind =
   | "tee" | "shirt" | "blouse" | "knit" | "hoodie" | "blazer" | "coat" | "jacket"
@@ -25,9 +26,12 @@ export interface StyleLook {
   title: string;
   pieces: LookPiece[];
   image_url?: string;
+  credit?: SamplePhoto;
 }
 
 const L = (id: string, gender: StyleLook["gender"], archetype: Archetype, palette: Palette, title: string, pieces: [PieceKind, string, LookPiece["pattern"]?][]): StyleLook => ({
+  image_url: quizPhoto(id)?.path,
+  credit: quizPhoto(id) ?? undefined,
   id,
   gender,
   archetype,
@@ -64,6 +68,34 @@ export const STYLE_LOOKS: StyleLook[] = [
   L("m-breton", "mens", "romantic", "pastel", "Breton & stone", [["tee", "#F5F3EE", "stripes"], ["trousers", "#D9CFC0"], ["sneakers", "#FFFFFF"], ["watch", "#C9B37E"]]),
   L("m-leather", "mens", "edgy", "dark", "Leather jacket", [["jacket", "#111111"], ["tee", "#F5F5F5"], ["jeans", "#3A3A3A"], ["boots", "#111111"]]),
 ];
+
+/** Search phrases for real outfit photos (street-style / lookbook) per look. */
+export const LOOK_PHOTO_QUERY: Record<string, string> = {
+  "w-trench": "woman beige trench coat loafers outfit street style",
+  "w-navy-pearls": "woman navy blazer midi skirt heels outfit",
+  "w-tonal-cream": "woman cream knit sweater trousers minimalist outfit",
+  "w-all-black": "woman all black minimalist outfit street style",
+  "w-weekday-smart": "woman camel blazer jeans loafers outfit",
+  "w-linen-ease": "woman linen shirt wide trousers summer outfit",
+  "w-street-layers": "woman hoodie cargo pants sneakers streetwear",
+  "w-colour-pop": "woman orange sweater blue jeans colorful outfit",
+  "w-athleisure": "woman athleisure leggings jacket sneakers outfit",
+  "w-boho": "woman boho floral dress boots hat",
+  "w-pastels": "woman pastel pink blouse skirt outfit",
+  "w-leather": "woman black leather jacket jeans boots outfit",
+  "m-navy-blazer": "man navy blazer white shirt grey trousers loafers",
+  "m-camel-coat": "man camel overcoat sweater winter outfit",
+  "m-tonal-grey": "man grey sweater grey trousers minimalist outfit",
+  "m-all-black": "man all black outfit minimalist street style",
+  "m-oxford-chinos": "man light blue oxford shirt chinos outfit",
+  "m-knit-polo": "man olive knit polo cream trousers outfit",
+  "m-hoodie-cargo": "man hoodie cargo pants sneakers streetwear",
+  "m-colour-block": "man red jacket jeans sneakers street style",
+  "m-training": "man gym workout t-shirt shorts sneakers",
+  "m-linen": "man linen shirt summer outfit hat",
+  "m-breton": "man breton striped shirt chinos sneakers",
+  "m-leather": "man black leather jacket white t-shirt jeans boots",
+};
 
 export function looksFor(department: "womens" | "mens" | "unisex"): StyleLook[] {
   if (department === "unisex") {

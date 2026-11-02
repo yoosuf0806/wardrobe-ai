@@ -25,6 +25,7 @@ Four tabs: **Stylist · Wardrobe · Shop · Profile**.
 - **Shop**: gap analysis across your main occasions, your outfit history and the laundry. It covers missing pieces, formality ceilings, "only one gym top", backups for laundry items and weather gaps. Each gap gets one pick **in your size, in your style and liked colours**, split into within-budget and above-budget sections. The store is **Daraz** by default (free, no key; daraz.lk in LKR), and Amazon is an option. Budgets convert between currencies.
 - **Profile**: body shape is calculated from your bust/waist/hip measurements (no photos), or you pick it yourself. It also holds sizes (tops, dress/frock, waist, length/inseam, shoes), fit overrides (*Avoid · Auto · Allow*, which always beat body-type advice), "prefer long sleeves", and the per-item budget. Changes save automatically.
 - **Sample imagery**: a built-in library of studio-style product illustrations (26 garment types, in any colour, with stripes, denim, knit and floral textures) served from `/art/<kind>/<HEX>.svg`. They're used for the demo wardrobe, any piece without a photo, sample shop listings and the style quiz. Original artwork, so there are no licensing issues; real photos replace them automatically when present.
+- **Real sample photos**: `npm run samples:photos` downloads real photos for the demo wardrobe (21 pieces) and the style quiz (24 outfit looks) from Pexels, which has a free API and photos free for commercial use. They replace the illustrations automatically. See below.
 - **Stylist engine**: deterministic rules (formality, colour harmony, body shape, weather, freshness, accessories) build the candidates; Claude picks and explains them. It works without an AI key too.
 
 ## Quick start
@@ -60,11 +61,28 @@ With no environment variables the app runs in **demo mode**: a seeded 16-piece w
 | `REMOVE_BG_API_KEY` | Background removal when saving items |
 | `FASHION_CLIP_ENDPOINT` | 512-d visual embeddings (pgvector) |
 
+## Real sample photos
+
+The demo wardrobe and the style quiz show illustrations until you fetch real photos. Run this once on any machine with internet:
+
+1. Get a free API key at https://www.pexels.com/api/
+2. Download the photos (about 45; already-downloaded ones are skipped):
+   ```bash
+   PEXELS_API_KEY=your_key npm run samples:photos
+   ```
+3. Look through them in the app (`npm run dev` → Style quiz and Wardrobe). To swap one you don't like, list the keys of the photos to replace:
+   ```bash
+   PEXELS_API_KEY=your_key npm run samples:photos -- --redo m-camel-coat,white-oxford-shirt
+   ```
+   Or change its search phrase in `src/lib/style/looks.ts` (`LOOK_PHOTO_QUERY`) or `src/lib/data/seed.ts`.
+4. Commit `public/samples/photos/` and `src/lib/samples/photo-manifest.json`. Photographer credits are kept in the manifest and shown in the quiz.
+
 ## Scripts
 
 - `npm test`: engine test suite (colour harmony, body classification, overrides, recommendations, swipe rounds, laundry, gaps, product ranking)
 - `npm run lint`: TypeScript check
 - `npm run build`: production build
+- `npm run samples:photos`: fetch real sample photos (needs `PEXELS_API_KEY`)
 
 ## Project layout
 

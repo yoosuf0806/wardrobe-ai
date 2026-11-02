@@ -106,7 +106,8 @@ export default function StylePage() {
               <div className="aspect-[4/5]">
                 <FlatLay look={l} />
               </div>
-              <p className="px-3 py-2.5 text-sm">{l.title}</p>
+              <p className="px-3 pt-2.5 text-sm">{l.title}</p>
+              <p className="truncate px-3 pb-2.5 text-[10px] text-faint">{l.credit ? `Photo: ${l.credit.photographer} · Pexels` : "\u00a0"}</p>
               <span className={`absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full transition ${on ? "bg-ink text-white" : "bg-surface/90 text-faint"}`}>
                 <IconCheck className="h-4 w-4" />
               </span>

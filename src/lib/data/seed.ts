@@ -1,3 +1,4 @@
+import { wardrobePhoto } from "../samples/photos";
 import { artUrl } from "../samples/garments";
 // Sample wardrobe used by DEMO mode and the test-suite.
 import { DEFAULT_FIT_PREFERENCES, DEFAULT_SIZES, EMPTY_STYLE_PROFILE, type GarmentAttributes, type OutfitLog, type Profile, type WardrobeItem } from "../types";
@@ -28,6 +29,11 @@ const SEED: SeedItem[] = [
   { category: "bottom", subcategory: "training shorts", color_hex: "#151515", color_name: "Black", pattern: "solid", fabric_type: "polyester", fabric_weight: "light", sleeve_length: "none", fit: "regular", length: "regular", formality: 1, seasonality: ["spring", "summer", "autumn", "winter"] },
 ];
 
+/** Search phrases used to fetch a real product photo for each demo item. */
+export function seedPhotoQueries(): { key: string; query: string }[] {
+  return SEED.map((s) => ({ key: s.subcategory, query: `${s.subcategory} ${s.category === "footwear" ? "shoes" : "clothing"} product white background` }));
+}
+
 export const DEMO_USER_ID = "00000000-0000-4000-8000-000000000001";
 
 
@@ -38,7 +44,8 @@ export function seedItems(userId = DEMO_USER_ID, now = new Date()): WardrobeItem
     ...s,
     id: `00000000-0000-4000-9000-${String(i + 1).padStart(12, "0")}`,
     user_id: userId,
-    image_url: artUrl({ secondary_colors: [], ...s }), // sample product illustration
+    // real sample photo when fetched (npm run samples:photos), else an illustration
+    image_url: wardrobePhoto(s.subcategory)?.path ?? artUrl({ secondary_colors: [], ...s }),
     image_path: null,
     wear_count: 0,
     last_worn_at: null,
