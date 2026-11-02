@@ -57,6 +57,14 @@ export const ProfilePatchSchema = z
     fit_preferences: FitPreferencesSchema,
     budget: z.object({ max_per_item: z.number().positive().max(100000), currency: z.string().length(3) }),
     department: z.enum(["womens", "mens", "unisex"]),
+    sizes: z.object({
+      top: z.string().max(10).nullable(),
+      bottom_waist: z.number().min(20).max(60).nullable(),
+      bottom_inseam: z.number().min(20).max(40).nullable(),
+      dress: z.string().max(10).nullable(),
+      shoe: z.string().max(6).nullable(),
+      shoe_system: z.enum(["US", "UK", "EU"]),
+    }),
   })
   .partial();
 
@@ -67,6 +75,12 @@ export const RecommendRequestSchema = z.object({
   lon: z.number().min(-180).max(180).nullable().optional(),
   manual_temp_c: z.number().min(-40).max(55).nullable().optional(),
   manual_rain: z.boolean().optional(),
+  /** items the user marked unavailable this session (on top of laundry) */
+  exclude_item_ids: z.array(z.string().uuid()).max(200).optional(),
+  /** items from outfits the user swiped away – avoided when possible */
+  avoid_item_ids: z.array(z.string().uuid()).max(200).optional(),
+  /** outfit ids already shown this session */
+  exclude_outfit_ids: z.array(z.string().max(300)).max(100).optional(),
 });
 
 export const GapSchema = z.object({
@@ -85,6 +99,7 @@ export const GapSchema = z.object({
     department: z.enum(["womens", "mens", "unisex"]),
     avoid_fits: z.array(z.enum(FITS)),
     waterproof: z.boolean().optional(),
+    size: z.string().max(30).nullable().default(null),
     query: z.string().min(2).max(120),
   }),
 });

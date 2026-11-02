@@ -4,11 +4,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NewImage, Repository } from "./repository";
 import type { StyleGap } from "../engine/gaps";
 import type { RankedProduct } from "../shopping/types";
-import { DEFAULT_FIT_PREFERENCES, type GarmentAttributes, type OutfitLog, type Profile, type WardrobeItem, type Weather } from "../types";
+import { DEFAULT_FIT_PREFERENCES, DEFAULT_SIZES, type GarmentAttributes, type OutfitLog, type Profile, type WardrobeItem, type Weather } from "../types";
 
 const BUCKET = "wardrobe";
 const ITEM_COLUMNS =
-  "id,user_id,image_path,category,subcategory,color_hex,color_name,secondary_colors,pattern,fabric_type,fabric_weight,sleeve_length,fit,length,formality,seasonality,waterproof,wear_count,last_worn_at,created_at";
+  "id,user_id,image_path,category,subcategory,color_hex,color_name,secondary_colors,pattern,fabric_type,fabric_weight,sleeve_length,fit,length,formality,seasonality,waterproof,wear_count,last_worn_at,in_laundry_since,created_at";
 
 type ItemRow = Omit<WardrobeItem, "image_url">;
 
@@ -104,6 +104,20 @@ export class SupabaseRepository implements Repository {
     if (error) throw error;
   }
 
+  async setLaundry(itemIds: string[], inLaundry: boolean): Promise<void> {
+    if (itemIds.length === 0) return;
+    const { error } = await this.db
+      .from("wardrobe_items")
+      .update({ in_laundry_since: inLaundry ? new Date().toISOString() : null })
+      .in("id", itemIds);
+    if (error) throw error;
+  }
+
+  async recordSwipe(swipe: { occasion: string; item_ids: string[]; decision: "accept" | "reject"; round: number }): Promise<void> {
+    const { error } = await this.db.from("outfit_swipes").insert({ ...swipe, user_id: this.userId });
+    if (error) throw error;
+  }
+
   async saveGap(gap: StyleGap, products: RankedProduct[]): Promise<void> {
     const { data, error } = await this.db
       .from("style_gaps")
@@ -141,5 +155,6 @@ function toProfile(row: Record<string, unknown>): Profile {
     fit_preferences: { ...DEFAULT_FIT_PREFERENCES, ...((row.fit_preferences as object) ?? {}) },
     budget: (row.budget as Profile["budget"]) ?? { max_per_item: 150, currency: "USD" },
     department: (row.department as Profile["department"]) ?? "unisex",
+    sizes: { ...DEFAULT_SIZES, ...((row.sizes as object) ?? {}) },
   };
 }

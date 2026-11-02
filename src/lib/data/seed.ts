@@ -1,5 +1,5 @@
 // Sample wardrobe used by DEMO mode and the test-suite.
-import { DEFAULT_FIT_PREFERENCES, type GarmentAttributes, type OutfitLog, type Profile, type WardrobeItem } from "../types";
+import { DEFAULT_FIT_PREFERENCES, DEFAULT_SIZES, type GarmentAttributes, type OutfitLog, type Profile, type WardrobeItem } from "../types";
 
 type SeedItem = Omit<GarmentAttributes, "secondary_colors" | "waterproof"> & Partial<Pick<GarmentAttributes, "secondary_colors" | "waterproof">>;
 
@@ -19,14 +19,16 @@ const SEED: SeedItem[] = [
   { category: "footwear", subcategory: "brown suede loafers", color_hex: "#8B5A2B", color_name: "Tobacco Brown", pattern: "solid", fabric_type: "suede", fabric_weight: "medium", sleeve_length: "none", fit: "regular", length: "regular", formality: 6, seasonality: ["spring", "summer", "autumn"] },
   { category: "footwear", subcategory: "running shoes", color_hex: "#2563EB", color_name: "Cobalt", pattern: "solid", fabric_type: "mesh", fabric_weight: "light", sleeve_length: "none", fit: "regular", length: "regular", formality: 1, seasonality: ["spring", "summer", "autumn", "winter"] },
   { category: "outerwear", subcategory: "camel wool overcoat", color_hex: "#C19A6B", color_name: "Camel", pattern: "solid", fabric_type: "wool", fabric_weight: "heavy", sleeve_length: "long_sleeve", fit: "regular", length: "longline", formality: 7, seasonality: ["autumn", "winter"] },
+  { category: "accessory", subcategory: "brown leather belt", color_hex: "#5C3A1E", color_name: "Dark Brown", pattern: "solid", fabric_type: "leather", fabric_weight: "medium", sleeve_length: "none", fit: "regular", length: "regular", formality: 6, seasonality: ["spring", "summer", "autumn", "winter"] },
+  { category: "accessory", subcategory: "silver watch", color_hex: "#C0C0C0", color_name: "Silver", pattern: "solid", fabric_type: "steel", fabric_weight: "light", sleeve_length: "none", fit: "regular", length: "regular", formality: 7, seasonality: ["spring", "summer", "autumn", "winter"] },
+  { category: "accessory", subcategory: "grey wool scarf", color_hex: "#6B7280", color_name: "Grey", pattern: "solid", fabric_type: "wool", fabric_weight: "medium", sleeve_length: "none", fit: "regular", length: "regular", formality: 5, seasonality: ["autumn", "winter"] },
   { category: "outerwear", subcategory: "denim jacket", color_hex: "#5B7DB1", color_name: "Mid Blue", pattern: "solid", fabric_type: "denim", fabric_weight: "medium", sleeve_length: "long_sleeve", fit: "regular", length: "regular", formality: 3, seasonality: ["spring", "autumn"] },
 ];
 
 export const DEMO_USER_ID = "00000000-0000-4000-8000-000000000001";
 
 function placeholderSvg(item: SeedItem): string {
-  const label = item.subcategory.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240"><rect width="200" height="240" fill="#f4f1ec"/><rect x="40" y="40" width="120" height="140" rx="18" fill="${item.color_hex}" stroke="#00000022"/><text x="100" y="212" font-family="sans-serif" font-size="12" text-anchor="middle" fill="#444">${label}</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240"><rect width="200" height="240" fill="#f4f1ec"/><rect x="40" y="40" width="120" height="160" rx="18" fill="${item.color_hex}" stroke="#00000022"/></svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
@@ -41,6 +43,7 @@ export function seedItems(userId = DEMO_USER_ID, now = new Date()): WardrobeItem
     image_path: null,
     wear_count: 0,
     last_worn_at: null,
+    in_laundry_since: null,
     created_at: new Date(now.getTime() - (SEED.length - i) * 86_400_000).toISOString(),
   }));
 }
@@ -55,6 +58,7 @@ export function seedProfile(userId = DEMO_USER_ID): Profile {
     fit_preferences: { ...DEFAULT_FIT_PREFERENCES },
     budget: { max_per_item: 150, currency: "USD" },
     department: "unisex",
+    sizes: { ...DEFAULT_SIZES },
   };
 }
 

@@ -1,10 +1,7 @@
-import { Suspense } from "react";
-import { StylistClient } from "./stylist-client";
+import { redirect } from "next/navigation";
 
-export default function StylistPage() {
-  return (
-    <Suspense>
-      <StylistClient />
-    </Suspense>
-  );
+// The stylist now lives on the home screen (occasion → swipe deck).
+export default async function StylistPage({ searchParams }: { searchParams: Promise<{ occasion?: string }> }) {
+  const { occasion } = await searchParams;
+  redirect(occasion ? `/?occasion=${encodeURIComponent(occasion)}` : "/");
 }

@@ -8,7 +8,9 @@
 | Backend | **Supabase** – Postgres + pgvector, private Storage bucket, RLS on every table, magic-link auth | As specified. |
 | Vision + stylist LLM | **Claude** via `@anthropic-ai/sdk`, structured outputs (Zod schemas), server-side refusal fallback | One provider, typed JSON output, no hand-rolled parsing. |
 | Body analysis | **On-device MediaPipe Pose Landmarker** + segmentation mask; tape-measure alternative | The body photo is sensitive biometric data. It never leaves the device; only ratios are stored. |
-| Shopping | **Provider interface**: SerpAPI Google Shopping, plus a mock catalogue | Legal, stable, and able to earn affiliate revenue. Scraping (Puppeteer) was deliberately not built; see §3. |
+| Shopping | **Amazon**: SerpAPI's Amazon engine for listings, with links rewritten to `/dp/{ASIN}?tag=…`; a "See more on Amazon" search link that needs no API key; a mock catalogue for the demo | Your choice of retailer. Legal and stable. Swappable for Amazon's own product API (PA-API / Creators API) once the Associates account qualifies. Scraping (Puppeteer) was deliberately not built; see §3. |
+| Core flow | Login → occasion → **swipe deck** (3 per round) → laundry prompt → next round | Defined by you (v2). |
+| Platform plan | Web app first, then mobile | The engine is plain TypeScript and portable to Expo/React Native unchanged. |
 | Weather | OpenWeatherMap current + 12h forecast (max precipitation probability), cached for 15 min | Rain probability is only available from the forecast endpoint. |
 
 ## 2. System overview
@@ -75,19 +77,45 @@ Gap specs respect the same layer: an oval profile gets `avoid_fits: ["slim"]` un
 | 11 | No department / sizing for shopping queries | Added `department`. Sizes are an open question. |
 | 12 | Body photo is biometric data (GDPR Art. 9, BIPA in Illinois) | Never uploaded; only ratios stored; deleting the account cascades. |
 
-## 4. Open questions for you
+## 4. Swipe-deck flow (v2)
 
-1. **Sizing**: should profiles store sizes (S/M/L, waist/inseam, EU/US shoe) so shopping queries filter by size?
-2. **Affiliate programs**: which retailers or networks (Amazon Associates, Rakuten, ShopStyle Collective, Impact)? This decides the production `ShoppingProvider`.
-3. **Accessories**: they are catalogued but not yet placed in outfits. Should the stylist add a bag, belt or jewellery slot?
-4. **Planning**: is a calendar integration wanted (Google Calendar → upcoming occasions → proactive gap alerts, e.g. "dinner on Friday")?
-5. **Laundry state**: should items be markable as "in the wash" so they're excluded for a few days?
-6. **Native app timing**: when should the Expo app start? The engine is plain TypeScript and portable as-is.
-7. **Monetisation and data retention**: needed before the privacy policy can be finalised.
+```
+pick occasion ──► POST /api/recommend (round 1) ──► 3 cards
+   swipe right ─► POST /api/swipes {accept} + POST /api/outfits (log, wear_count++) ─► rate 1–5
+   swipe left  ─► POST /api/swipes {reject}; remember the card's clothing items
+   3 × left    ─► popup: the distinct pieces from those 3 outfits (photos)
+                    ├─ "Mark N as in laundry & show more" ─► POST /api/laundry ─► round N+1
+                    └─ "Skip – show me more outfits"      ─────────────────────► round N+1
+round N+1: POST /api/recommend { avoid_item_ids: all rejected pieces,
+                                 exclude_item_ids: marked unavailable,
+                                 exclude_outfit_ids: all shown }
+   no outfits left ─► "that's every combination" + gap analysis (Amazon suggestions)
+```
 
-## 5. Roadmap after MVP
+- **Avoidance is per category.** Rejected pieces are excluded wherever that category still has alternatives. A required category that would otherwise be empty (e.g. footwear when you own two office-appropriate pairs) re-admits them with a score penalty, and the UI says "Reusing your shoes".
+- **Laundry** is `wardrobe_items.in_laundry_since`. Items are excluded until marked clean, or automatically after 7 days (`LAUNDRY_DAYS`).
+- **Every swipe is stored** in `outfit_swipes`. It's not used yet; it's the training data for learning personal taste (see roadmap).
+- **Accessories** are picked per ensemble *after* the clothes, so they never multiply the search space. One is added only if it doesn't lower colour harmony, and accessories don't count toward outfit diversity.
+
+## 5. Mobile app (next phase)
+
+- An Expo (React Native) app reusing `src/lib/engine`, `src/lib/types.ts` and the same API routes.
+- **Needed first:** the API currently authenticates via Supabase session cookies (web). The native app will send the Supabase access token as `Authorization: Bearer …`. A small change in `getRepository()`: build the Supabase client from the bearer token when present.
+- The swipe card would use `react-native-gesture-handler` + `reanimated`, the camera would use `expo-camera`, and the on-device body scan would use MediaPipe via `react-native-mediapipe` or a VisionCamera frame processor.
+
+## 6. Open questions for you
+
+Answered in v2: sizes ✔, Amazon ✔, accessories ✔, occasion-first flow (no calendar) ✔, swipe + laundry ✔, web first then mobile ✔.
+
+Still open:
+1. **Amazon marketplace(s)**: amazon.com only, or also other regions (.co.uk, .ae, .in …)? Each needs its own Associates tag.
+2. **Laundry auto-return**: is 7 days right, or should it be a user setting?
+3. **Round limit**: after how many rejected rounds should we stop dealing and go straight to "here's what to buy"? Currently we deal until combinations run out.
+4. **Monetisation and data retention**: needed before the privacy policy can be finalised.
+
+## 7. Roadmap
 
 - Fashion-CLIP embeddings → "you already own something similar" warnings in shopping results (`match_wardrobe_items` RPC is in place).
-- Learn from `outfit_logs.feedback`: per-user weights for colour/body/freshness.
+- Learn from `outfit_swipes` and `outfit_logs.feedback`: per-user weights for colour/body/freshness, and "never pair these two" memory.
 - Background jobs (Supabase cron → Edge Function) for weekly wear-frequency insights and notifications.
 - Batch API for re-tagging the wardrobe when the tagging prompt improves.

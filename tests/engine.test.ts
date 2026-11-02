@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { classifyBodyShape } from "@/lib/body/classify";
 import { evaluateHarmony, isNeutral } from "@/lib/engine/color";
 import { activeItemRules, userReject } from "@/lib/engine/body-rules";
-import { analyzeMatchGaps, analyzeWearFrequency } from "@/lib/engine/gaps";
+import { analyzeMatchGaps, analyzeWearFrequency, sizeFor } from "@/lib/engine/gaps";
 import { resolveOccasion } from "@/lib/engine/occasions";
-import { itemIds, recommendOutfits } from "@/lib/engine/recommend";
+import { isInLaundry, itemIds, recommendOutfits } from "@/lib/engine/recommend";
 import { seedItems, seedLogs, seedProfile } from "@/lib/data/seed";
 import { rankProducts } from "@/lib/shopping/rank";
 import type { Profile, Weather } from "@/lib/types";
@@ -94,7 +94,7 @@ describe("recommendation matrix", () => {
       expect(c.complete).toBe(true);
       for (const id of itemIds(c)) expect(ids.has(id)).toBe(true);
     }
-    const [a, b] = res.candidates.map((c) => new Set(itemIds(c)));
+    const [a, b] = res.candidates.map((c) => new Set(itemIds({ ...c, accessory: null }))); // accessories may repeat
     expect([...a].filter((x) => b.has(x)).length).toBeLessThanOrEqual(1);
   });
   it("rejects heavy fabrics above 25°C", () => {
@@ -154,7 +154,7 @@ describe("product ranking", () => {
   it("ranks in-budget, on-spec products first and drops far-over-budget ones", () => {
     const spec = {
       category: "outerwear" as const, subcategory: "navy blazer", color_hex: "#1F2A44", color_name: "navy", formality: 8,
-      max_price: 150, currency: "USD", department: "mens" as const, avoid_fits: ["slim" as const], query: "men's navy blazer",
+      max_price: 150, currency: "USD", department: "mens" as const, avoid_fits: ["slim" as const], size: null, query: "men's navy blazer",
     };
     const base = { merchant: "x", currency: "USD", image_url: null, rating: 4.5, reviews: 200 };
     const ranked = rankProducts(
@@ -178,5 +178,72 @@ describe("formal gap colours", () => {
     const gaps = analyzeMatchGaps(items, profile(), occ, res);
     expect(gaps.find((g) => g.spec.category === "top")?.spec.color_name).toBe("white");
     expect(gaps.find((g) => g.spec.category === "footwear")?.spec.color_name).toBe("black");
+  });
+});
+
+describe("accessories", () => {
+  it("adds an accessory that keeps the colour story", () => {
+    const res = recommendOutfits({ items, profile: profile(), occasion: resolveOccasion("Business casual"), weather: weather(20), now: NOW });
+    const withAcc = res.candidates.filter((c) => c.accessory);
+    expect(withAcc.length).toBeGreaterThan(0);
+    for (const c of withAcc) expect(c.accessory!.category).toBe("accessory");
+  });
+  it("only adds a scarf when it is cold", () => {
+    const warm = recommendOutfits({ items, profile: profile(), occasion: resolveOccasion("casual"), weather: weather(22), now: NOW });
+    expect(warm.pool.some((c) => c.accessory?.subcategory.includes("scarf"))).toBe(false);
+  });
+});
+
+describe("swipe deck rounds", () => {
+  const occ = resolveOccasion("Business casual / Office");
+  const base = { items, profile: profile(), occasion: occ, weather: weather(20), now: NOW };
+
+  it("round 2 avoids every clothing item from rejected outfits when possible", () => {
+    const r1 = recommendOutfits(base);
+    const seen = r1.candidates.flatMap((c) => itemIds({ ...c, accessory: null }));
+    const r2 = recommendOutfits({ ...base, avoidItemIds: seen, excludeOutfitIds: r1.candidates.map((c) => c.id) });
+    const byId = new Map(items.map((i) => [i.id, i]));
+    for (const c of r2.candidates)
+      for (const id of itemIds({ ...c, accessory: null }))
+        if (!r2.relaxedCategories.includes(byId.get(id)!.category)) expect(seen).not.toContain(id);
+    expect(r2.candidates.length).toBeGreaterThan(0);
+    for (const c of r2.candidates) expect(r1.candidates.map((x) => x.id)).not.toContain(c.id);
+  });
+
+  it("relaxes to fresh combinations when the wardrobe runs out", () => {
+    const allClothes = items.filter((i) => i.category !== "accessory").map((i) => i.id);
+    const r1 = recommendOutfits(base);
+    const r = recommendOutfits({ ...base, avoidItemIds: allClothes, excludeOutfitIds: r1.candidates.map((c) => c.id) });
+    expect(r.relaxed).toBe(true);
+    expect(r.candidates.length).toBeGreaterThan(0);
+    for (const c of r.candidates) expect(r1.candidates.map((x) => x.id)).not.toContain(c.id);
+  });
+
+  it("never suggests laundry or unavailable items", () => {
+    const shirt = byName("white oxford shirt");
+    const washing = items.map((i) => (i.id === shirt.id ? { ...i, in_laundry_since: NOW.toISOString() } : i));
+    const r = recommendOutfits({ ...base, items: washing, excludeItemIds: [byName("khaki chinos").id] });
+    const used = r.pool.flatMap(itemIds);
+    expect(used).not.toContain(shirt.id);
+    expect(used).not.toContain(byName("khaki chinos").id);
+  });
+
+  it("returns laundry items to the closet after 7 days", () => {
+    expect(isInLaundry({ in_laundry_since: new Date(NOW.getTime() - 2 * 86_400_000).toISOString() }, NOW)).toBe(true);
+    expect(isInLaundry({ in_laundry_since: new Date(NOW.getTime() - 8 * 86_400_000).toISOString() }, NOW)).toBe(false);
+  });
+});
+
+describe("sizes in shopping specs", () => {
+  it("formats sizes per category and puts them in the query", () => {
+    const sizes = { top: "M", bottom_waist: 32, bottom_inseam: 30, dress: null, shoe: "10", shoe_system: "US" as const };
+    expect(sizeFor("bottom", sizes)).toBe("32W x 30L");
+    expect(sizeFor("footwear", sizes)).toBe("10 US");
+    expect(sizeFor("accessory", sizes)).toBeNull();
+    const p = profile({ sizes });
+    const occ = resolveOccasion("black tie");
+    const res = recommendOutfits({ items, profile: p, occasion: occ, weather: weather(18), now: NOW });
+    const shoeGap = analyzeMatchGaps(items, p, occ, res).find((g) => g.spec.category === "footwear")!;
+    expect(shoeGap.spec.query).toContain("size 10 US");
   });
 });

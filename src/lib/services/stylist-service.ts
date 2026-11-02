@@ -5,7 +5,7 @@ import { analyzeMatchGaps, type StyleGap } from "../engine/gaps";
 import { resolveOccasion } from "../engine/occasions";
 import { itemIds, recommendOutfits, type OutfitCandidate } from "../engine/recommend";
 import type { Repository } from "../data/repository";
-import { getShoppingProvider } from "../shopping/providers";
+import { amazonSearchUrl, getShoppingProvider } from "../shopping/providers";
 import { rankProducts } from "../shopping/rank";
 import type { RankedProduct } from "../shopping/types";
 import { getWeather, manualWeather } from "../weather";
@@ -18,6 +18,9 @@ export interface RecommendRequest {
   lon?: number | null;
   manual_temp_c?: number | null;
   manual_rain?: boolean;
+  exclude_item_ids?: string[];
+  avoid_item_ids?: string[];
+  exclude_outfit_ids?: string[];
 }
 
 export interface OutfitView {
@@ -41,6 +44,10 @@ export interface RecommendResponse {
   stylist: "claude" | "engine";
   stylist_error: string | null;
   excluded: number;
+  /** true when this round had to reuse pieces from rejected outfits */
+  relaxed: boolean;
+  relaxed_categories: string[];
+  in_laundry: number;
 }
 
 function toView(c: OutfitCandidate, title: string, note: string): OutfitView {
@@ -51,6 +58,7 @@ function toView(c: OutfitCandidate, title: string, note: string): OutfitView {
       ["Dress / One-piece", c.onePiece],
       ["Bottom", c.bottom],
       ["Shoes", c.footwear],
+      ["Accessory", c.accessory],
     ] as const
   )
     .filter(([, i]) => !!i)
@@ -72,7 +80,15 @@ export async function recommend(repo: Repository, req: RecommendRequest): Promis
   const weather =
     typeof req.manual_temp_c === "number" ? manualWeather(req.manual_temp_c, !!req.manual_rain, req.lat ?? null) : await getWeather(req.lat ?? null, req.lon ?? null);
 
-  const result = recommendOutfits({ items, profile, occasion, weather });
+  const result = recommendOutfits({
+    items,
+    profile,
+    occasion,
+    weather,
+    excludeItemIds: req.exclude_item_ids,
+    avoidItemIds: req.avoid_item_ids,
+    excludeOutfitIds: req.exclude_outfit_ids,
+  });
   const gaps = analyzeMatchGaps(items, profile, occasion, result);
   const completePool = result.pool.filter((c) => c.complete);
 
@@ -104,6 +120,7 @@ export async function recommend(repo: Repository, req: RecommendRequest): Promis
               currency: profile.budget.currency,
               department: profile.department,
               avoid_fits: [],
+              size: null,
               query: `${profile.department === "unisex" ? "" : profile.department === "womens" ? "women's " : "men's "}${styled.gapSuggestion.description}`.slice(0, 100),
             },
           });
@@ -128,13 +145,16 @@ export async function recommend(repo: Repository, req: RecommendRequest): Promis
     stylist,
     stylist_error,
     excluded: result.rejected.length,
+    relaxed: result.relaxed,
+    relaxed_categories: result.relaxedCategories,
+    in_laundry: result.rejected.filter((r) => r.reason === "in the laundry").length,
   };
 }
 
-export async function shopForGap(repo: Repository, gap: StyleGap): Promise<{ products: RankedProduct[]; provider: string }> {
+export async function shopForGap(repo: Repository, gap: StyleGap): Promise<{ products: RankedProduct[]; provider: string; search_url: string }> {
   const provider = getShoppingProvider();
   const listings = await provider.search(gap.spec, 12);
   const products = rankProducts(listings, gap.spec, gap.urgency, provider.name, 3);
   await repo.saveGap(gap, products).catch((err) => console.error("failed to persist gap", err));
-  return { products, provider: provider.name };
+  return { products, provider: provider.name, search_url: amazonSearchUrl(gap.spec) };
 }

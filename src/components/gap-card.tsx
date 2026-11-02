@@ -23,6 +23,7 @@ export function GapCard({ gap }: { gap: StyleGap }) {
   const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [products, setProducts] = useState<RankedProduct[]>([]);
   const [provider, setProvider] = useState("");
+  const [searchUrl, setSearchUrl] = useState("");
 
   async function find() {
     setState("loading");
@@ -32,6 +33,7 @@ export function GapCard({ gap }: { gap: StyleGap }) {
       if (!res.ok) throw new Error(json.error);
       setProducts(json.products);
       setProvider(json.provider);
+      setSearchUrl(json.search_url);
       setState("done");
     } catch {
       setState("error");
@@ -73,7 +75,16 @@ export function GapCard({ gap }: { gap: StyleGap }) {
               <div className={`text-sm font-semibold ${p.within_budget ? "text-good" : "text-accent"}`}>{money(p.price, p.currency)}</div>
             </a>
           ))}
-          {provider === "mock" && <p className="text-[11px] text-muted">Demo catalogue – add a SERPAPI_API_KEY for live listings.</p>}
+          {searchUrl && (
+            <a href={searchUrl} target="_blank" rel="noopener noreferrer sponsored" className="btn-ghost w-full py-2">
+              See more on Amazon →
+            </a>
+          )}
+          <p className="text-[11px] text-muted">
+            {gap.spec.size ? `Searched in your size (${gap.spec.size}). ` : ""}
+            As an Amazon Associate we earn from qualifying purchases. Prices may change.
+            {provider === "mock" && " Demo listings – add a SERPAPI_API_KEY for live Amazon results."}
+          </p>
         </div>
       )}
     </div>

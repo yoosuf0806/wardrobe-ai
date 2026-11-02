@@ -5,7 +5,7 @@ import { STAPLE_COLORS, countDistinctColors, evaluateHarmony } from "./color";
 import { activeItemRules } from "./body-rules";
 import { OCCASIONS, resolveOccasion, type OccasionProfile } from "./occasions";
 import type { RecommendResult } from "./recommend";
-import type { Category, Department, Fit, OutfitLog, Profile, WardrobeItem } from "../types";
+import type { Category, Department, Fit, OutfitLog, Profile, Sizes, WardrobeItem } from "../types";
 
 export type GapTrigger = "incomplete_match" | "formality_ceiling" | "weather" | "wear_frequency";
 
@@ -20,6 +20,7 @@ export interface GapSpec {
   department: Department;
   avoid_fits: Fit[];
   waterproof?: boolean;
+  size: string | null; // e.g. "M", "32W x 30L", "10 US"
   query: string;
 }
 
@@ -103,6 +104,25 @@ function formalColor(category: Category): { hex: string; name: string } {
   return category === "top" ? { hex: "#F5F5F0", name: "white" } : { hex: "#111111", name: "black" };
 }
 
+/** The user's size for a category, formatted the way retailers list it. */
+export function sizeFor(category: Category, sizes: Sizes | undefined): string | null {
+  if (!sizes) return null;
+  switch (category) {
+    case "top":
+    case "outerwear":
+      return sizes.top;
+    case "bottom":
+      if (sizes.bottom_waist && sizes.bottom_inseam) return `${sizes.bottom_waist}W x ${sizes.bottom_inseam}L`;
+      return sizes.bottom_waist ? `${sizes.bottom_waist}W` : null;
+    case "one_piece":
+      return sizes.dress;
+    case "footwear":
+      return sizes.shoe ? `${sizes.shoe} ${sizes.shoe_system}` : null;
+    default:
+      return null;
+  }
+}
+
 function makeSpec(category: Category, formality: number, profile: Profile, pool: WardrobeItem[], opts: { cold?: boolean; rain?: boolean } = {}): GapSpec {
   const color = formality >= 9 ? formalColor(category) : bridgeColor(pool);
   const subcategory = suggestSubcategory(category, formality, profile.department, opts);
@@ -120,7 +140,8 @@ function makeSpec(category: Category, formality: number, profile: Profile, pool:
     department: profile.department,
     avoid_fits,
     waterproof: opts.rain || undefined,
-    query: `${dept}${color.name} ${fitWord}${subcategory}`.replace(/\s+/g, " ").trim(),
+    size: sizeFor(category, profile.sizes),
+    query: `${dept}${color.name} ${fitWord}${subcategory}${sizeFor(category, profile.sizes) ? ` size ${sizeFor(category, profile.sizes)}` : ""}`.replace(/\s+/g, " ").trim(),
   };
 }
 

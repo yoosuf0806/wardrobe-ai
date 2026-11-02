@@ -13,13 +13,14 @@ interface DemoState {
   items: WardrobeItem[];
   logs: OutfitLog[];
   gaps: { gap: StyleGap; products: RankedProduct[] }[];
+  swipes: { occasion: string; item_ids: string[]; decision: "accept" | "reject"; round: number; at: string }[];
 }
 
 const g = globalThis as unknown as { __smartstylistDemo?: DemoState };
 function state(): DemoState {
   if (!g.__smartstylistDemo) {
     const items = seedItems();
-    g.__smartstylistDemo = { profile: seedProfile(), items, logs: seedLogs(items), gaps: [] };
+    g.__smartstylistDemo = { profile: seedProfile(), items, logs: seedLogs(items), gaps: [], swipes: [] };
   }
   return g.__smartstylistDemo;
 }
@@ -48,6 +49,7 @@ export class DemoRepository implements Repository {
       image_path: null,
       wear_count: 0,
       last_worn_at: null,
+      in_laundry_since: null,
       created_at: new Date().toISOString(),
     };
     state().items.unshift(item);
@@ -79,5 +81,13 @@ export class DemoRepository implements Repository {
   }
   async saveGap(gap: StyleGap, products: RankedProduct[]) {
     state().gaps.unshift({ gap, products });
+  }
+  async setLaundry(itemIds: string[], inLaundry: boolean) {
+    const s = state();
+    const at = inLaundry ? new Date().toISOString() : null;
+    s.items = s.items.map((i) => (itemIds.includes(i.id) ? { ...i, in_laundry_since: at } : i));
+  }
+  async recordSwipe(swipe: { occasion: string; item_ids: string[]; decision: "accept" | "reject"; round: number }) {
+    state().swipes.unshift({ ...swipe, at: new Date().toISOString() });
   }
 }

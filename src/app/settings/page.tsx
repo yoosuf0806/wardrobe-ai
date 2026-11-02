@@ -42,12 +42,13 @@ export default function SettingsPage() {
   const prefs = profile.fit_preferences;
   const setPrefs = (p: Partial<FitPreferences>) => { setSaved(false); setProfile({ ...profile, fit_preferences: { ...prefs, ...p } }); };
   const rules = baselineRulesFor(profile.body_shape);
+  const setSizes = (patch: Partial<Profile["sizes"]>) => { setSaved(false); setProfile({ ...profile, sizes: { ...profile.sizes, ...patch } }); };
 
   async function save() {
     await fetch("/api/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fit_preferences: profile!.fit_preferences, budget: profile!.budget, department: profile!.department, display_name: profile!.display_name }),
+      body: JSON.stringify({ fit_preferences: profile!.fit_preferences, budget: profile!.budget, department: profile!.department, sizes: profile!.sizes, display_name: profile!.display_name }),
     });
     setSaved(true);
   }
@@ -125,6 +126,43 @@ export default function SettingsPage() {
           ))}
         </section>
       )}
+
+      <section className="card space-y-3">
+        <div>
+          <h2 className="font-medium">Your sizes</h2>
+          <p className="text-xs text-muted">Used to search Amazon in your size. Leave blank if you&apos;d rather not say.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div>
+            <label className="label">Tops / jackets</label>
+            <select className="input" value={profile.sizes.top ?? ""} onChange={(e) => setSizes({ top: e.target.value || null })}>
+              <option value="">–</option>
+              {["XXS", "XS", "S", "M", "L", "XL", "XXL", "3XL"].map((s) => <option key={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label">Waist (in)</label>
+            <input className="input" type="number" min={20} max={60} value={profile.sizes.bottom_waist ?? ""} onChange={(e) => setSizes({ bottom_waist: e.target.value ? Number(e.target.value) : null })} />
+          </div>
+          <div>
+            <label className="label">Inseam (in)</label>
+            <input className="input" type="number" min={20} max={40} value={profile.sizes.bottom_inseam ?? ""} onChange={(e) => setSizes({ bottom_inseam: e.target.value ? Number(e.target.value) : null })} />
+          </div>
+          <div>
+            <label className="label">Dress size</label>
+            <input className="input" maxLength={10} placeholder="e.g. 8 or M" value={profile.sizes.dress ?? ""} onChange={(e) => setSizes({ dress: e.target.value || null })} />
+          </div>
+          <div>
+            <label className="label">Shoe size</label>
+            <div className="flex gap-1">
+              <input className="input" maxLength={6} placeholder="10" value={profile.sizes.shoe ?? ""} onChange={(e) => setSizes({ shoe: e.target.value || null })} />
+              <select className="input w-20" value={profile.sizes.shoe_system} onChange={(e) => setSizes({ shoe_system: e.target.value as "US" | "UK" | "EU" })}>
+                <option>US</option><option>UK</option><option>EU</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section className="card grid gap-3 sm:grid-cols-3">
         <div>

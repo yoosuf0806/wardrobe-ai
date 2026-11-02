@@ -51,6 +51,7 @@ function describeCandidate(c: OutfitCandidate, id: string) {
     itemLine("One-piece", c.onePiece),
     itemLine("Shoes", c.footwear),
     itemLine("Outerwear", c.outerwear),
+    itemLine("Accessory", c.accessory),
   ].filter(Boolean);
   const rules = c.ruleHits.map((h) => `${h.weight > 0 ? "+" : "-"} ${h.description}`).join("; ");
   return `[${id}] engine score ${c.score.toFixed(2)} | colour: ${c.harmony.scheme} (${c.harmony.distinctColors} colours) | avg formality ${c.formality}${c.complete ? "" : " | INCOMPLETE"}

@@ -69,6 +69,7 @@ export interface WardrobeItem extends GarmentAttributes {
   image_path: string | null; // storage path
   wear_count: number;
   last_worn_at: string | null;
+  in_laundry_since: string | null;
   created_at: string;
 }
 
@@ -104,6 +105,18 @@ export const DEFAULT_FIT_PREFERENCES: FitPreferences = {
 
 export type Department = "womens" | "mens" | "unisex";
 
+/** Clothing sizes, used to narrow shopping searches. All optional. */
+export interface Sizes {
+  top: string | null; // "XS".."XXL" or numeric
+  bottom_waist: number | null; // inches
+  bottom_inseam: number | null; // inches
+  dress: string | null; // "8", "M" ...
+  shoe: string | null; // "10", "42" ...
+  shoe_system: "US" | "UK" | "EU";
+}
+
+export const DEFAULT_SIZES: Sizes = { top: null, bottom_waist: null, bottom_inseam: null, dress: null, shoe: null, shoe_system: "US" };
+
 export interface Budget {
   max_per_item: number;
   currency: string;
@@ -131,6 +144,7 @@ export interface Profile {
   fit_preferences: FitPreferences;
   budget: Budget;
   department: Department;
+  sizes: Sizes;
 }
 
 export interface Weather {
